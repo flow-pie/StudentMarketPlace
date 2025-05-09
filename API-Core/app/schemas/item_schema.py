@@ -1,0 +1,1 @@
+# Marshmallow schema for items
