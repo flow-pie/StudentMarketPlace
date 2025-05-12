@@ -1,0 +1,84 @@
+{
+  "item": [
+    {
+      "name": "Protected Route Access",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/items/protected",
+          "host": ["{{base_url}}"],
+          "path": ["api","items","protected"]
+        }
+      },
+      "response": [
+        {
+          "name": "Success",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/items/protected",
+              "host": ["{{base_url}}"],
+              "path": ["api","items","protected"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"message\": \"Hello user@example.com!\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Admin Route - Forbidden",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/items/admin",
+          "host": ["{{base_url}}"],
+          "path": ["api","items","admin"]
+        }
+      },
+      "response": [
+        {
+          "name": "Forbidden",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/items/admin",
+              "host": ["{{base_url}}"],
+              "path": ["api","items","admin"]
+            }
+          },
+          "status": "Forbidden",
+          "code": 403,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"error\": \"Admin access required\"\n}"
+        }
+      ]
+    }
+  ]
+}

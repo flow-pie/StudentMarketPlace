@@ -64,7 +64,7 @@ class Transaction(db.Model):
     notes = db.Column(db.Text)  # For any additional transaction notes
 
     # Relationships
-    item = db.relationship('Items', backref='transactions')
+    item = db.relationship('Item', backref='transactions')
     buyer = db.relationship(
         'User',
         foreign_keys=[buyer_id],
