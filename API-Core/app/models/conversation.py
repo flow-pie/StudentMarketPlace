@@ -16,13 +16,6 @@ class Conversation(db.Model):
     sender = db.relationship('User', foreign_keys=[sender_id], backref='conversations_initiated')
     item = db.relationship('Item', backref='conversations')
 
-    # participants through a secondary relationship if needed
-    participants = db.relationship(
-        'User',
-        secondary='conversation_participants',
-        backref='conversations_participated'
-    )
-
     __table_args__ = (
         db.Index('idx_conversation_item_sender', 'item_id', 'sender_id'),
     )
