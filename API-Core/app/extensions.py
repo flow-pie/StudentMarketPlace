@@ -29,7 +29,7 @@ def init_jwt(app):
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
     jwt.init_app(app)
 
-    from app.models import User#importing here to avoid circular import err
+    from .models import User#importing here to avoid circular import err
 
     #add user identity loader
     @jwt.user_identity_loader

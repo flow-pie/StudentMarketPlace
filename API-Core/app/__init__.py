@@ -15,8 +15,8 @@ def create_app():
 
     app = Flask(__name__)
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('NEON_POSTGRES_URL')
-    #app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('MYSQL_URL') #msql DBMS
+    #app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('NEON_POSTGRES_URL')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('MYSQL_URL') #msql DBMS
     #app.config['SQLALCHEMY_DATABASE_URI'] =  os.getenv('SQLITE_URL')  #uncomment this if you prefer sqlite DBMS
 
 
