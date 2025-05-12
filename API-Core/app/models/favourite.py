@@ -11,8 +11,8 @@ class Favourite(db.Model):
     added_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
-    user = db.relationship('Users', backref='favourites')
-    item = db.relationship('Items', backref='favorited_by')
+    user = db.relationship('User', backref='favourites')
+    item = db.relationship('Item', backref='favorited_by')
 
     # Composite unique constraint to prevent duplicate favorites
     __table_args__ = (
