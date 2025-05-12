@@ -1,4 +1,4 @@
-# Extensions init: db, jwt, cors
+# Extensions init: db, jwt, cors configs
 import os
 
 from flask import Flask
@@ -27,3 +27,26 @@ def init_jwt(app):
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')  # Flask Secret Key
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')  # JWT Secret Key
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+    jwt.init_app(app)
+
+    from app.models import User#importing here to avoid circular import err
+
+    #add user identity loader
+    @jwt.user_identity_loader
+    def user_identity_lookup(user_id):
+        return user_id
+
+    #adding claims to tokens
+    @jwt.additional_claims_loader
+    def add_claims_to_access_token(identity):
+        user = User.query.get(identity)
+        return {
+            'is_admin': user.is_admin,
+            'email': user.email,
+            'status': user.account_status.value
+        }
+
+    @jwt.user_lookup_loader
+    def user_lookup_callback(_jwt_header, jwt_data):
+        identity = jwt_data["sub"]
+        return User.query.get(identity)

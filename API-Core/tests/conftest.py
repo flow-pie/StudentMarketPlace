@@ -3,7 +3,11 @@ import uuid
 import pytest
 from app import create_app
 from app.extensions import db
+import jwt
 from app.models.user import AccountStatus, User
+from flask_jwt_extended import create_access_token
+from datetime import timedelta
+
 
 
 @pytest.fixture(scope='module')
@@ -48,6 +52,9 @@ def test_user(db_fixture):
 
 @pytest.fixture
 def inactive_user(db_fixture):
+    db_fixture.session.query(User).filter_by(email="inactive@example.com").delete()
+    db_fixture.session.commit()
+
     user = User(
         email="inactive@example.com",
         password="testpassword123",
@@ -58,3 +65,27 @@ def inactive_user(db_fixture):
     db_fixture.session.add(user)
     db_fixture.session.commit()
     return user
+
+
+@pytest.fixture
+def auth_headers(test_user, app):
+    with app.app_context():
+        token = create_access_token(identity=str(test_user.user_id))
+        decoded = jwt.decode(
+            token,
+            app.config['JWT_SECRET_KEY'],
+            algorithms=["HS256"]
+        )
+        csrf_token = decoded.get('csrf', '')
+        return {
+            'Authorization': f'Bearer {token}',
+            'X-CSRF-Token': csrf_token
+        }
+
+@pytest.fixture
+def expired_token(test_user):
+    """Generate expired token"""
+    return create_access_token(
+        identity=str(test_user.user_id),
+        expires_delta=timedelta(seconds=-1)
+    )

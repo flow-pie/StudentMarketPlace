@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 from app import db
@@ -21,7 +23,7 @@ def test_registration(client, db_fixture):
 
     # Test registration
     test_data = {
-        "email": "test@example.com",
+        "email": f"test{uuid.uuid4()}@example.com",
         "password": "SecurePass123",
         "first_name": "Test",
         "last_name": "User"
