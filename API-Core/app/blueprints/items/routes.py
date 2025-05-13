@@ -1,7 +1,8 @@
 from http import HTTPStatus
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, current_user
+from flask_jwt_extended import  current_user, jwt_required
 from sqlalchemy.exc import SQLAlchemyError
+
 from ...extensions import db
 from ...models import Item
 from ...schemas.item import ItemCreateSchema, ItemSchema
@@ -20,7 +21,7 @@ def create_item():
 
     try:
         item = ItemService.create_item(
-            user_id=current_user.id,
+            user_id=current_user.user_id,
             item_data=request.json
         )
         return jsonify({
@@ -38,6 +39,8 @@ def create_item():
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({"success": False, "error": "Database operation failed"}), HTTPStatus.INTERNAL_SERVER_ERROR.value
+
+
 #get all items
 @items_crud_bp.route('', methods=['GET'])
 def get_all_item():

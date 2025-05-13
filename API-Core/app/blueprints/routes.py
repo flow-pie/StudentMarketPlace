@@ -1,7 +1,7 @@
 # Routes related to items
 from flask import jsonify, Blueprint
 from flask_jwt_extended import current_user
-from app.decorators.auth import jwt_required, admin_required
+from ..decorators.auth import jwt_required, admin_required
 
 items_bp = Blueprint('items', __name__)
 
