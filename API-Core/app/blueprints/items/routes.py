@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required, current_user
 from sqlalchemy.exc import SQLAlchemyError
 from ...extensions import db
 from ...models import Item
-from ...schemas.item import ItemCreateSchema
+from ...schemas.item import ItemCreateSchema, ItemSchema
 from ...services.item import ItemService
 
 items_crud_bp = Blueprint('items_crud', __name__, url_prefix='/api/items')
@@ -41,13 +41,11 @@ def create_item():
 #get all items
 @items_crud_bp.route('', methods=['GET'])
 def get_all_item():
-    items =  Item.query.all()
-    schema = ItemSchema(many=True)
-    return jsonify(schema.dump(items)), HTTPStatus.OK.value
+    items =  Item.query.order_by(Item.created_at.desc()).all()
+    return jsonify(ItemSchema(many=True).dump(items)), HTTPStatus.OK.value
 
 #get an item by id
 @items_crud_bp.route('/<int:item_id>', methods=['GET'])
 def get_item_by_id(item_id):
     item = Item.query.get_or_404(item_id)
-    schema = ItemSchema()
-    return jsonify(schema.dump(item)), HTTPStatus.OK.value
+    return jsonify(ItemSchema().dump(item)), HTTPStatus.OK.value

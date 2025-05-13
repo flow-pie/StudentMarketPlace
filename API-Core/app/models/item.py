@@ -39,3 +39,5 @@ class Item(db.Model):
     updated_at = db.Column(db.DateTime, onupdate=lambda: datetime.now(UTC))
 
     seller = db.relationship('User', back_populates='items')
+
+

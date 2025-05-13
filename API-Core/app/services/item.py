@@ -16,3 +16,11 @@ class ItemService:
         db.session.add(new_item)
         db.session.commit()
         return new_item
+
+    @staticmethod
+    def get_all_items(self):
+        return Item.query.all()
+
+    @staticmethod
+    def get_item_by_id(self, item_id):
+        return Item.query.get_or_404(item_id)
