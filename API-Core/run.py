@@ -8,7 +8,6 @@ app = create_app()
 
 #create DB tables only once
 with app.app_context():
-    pass
     #COMMENT THIS DURING PRODUCTION
     #db.drop_all()
     #db.create_all()
