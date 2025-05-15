@@ -27,3 +27,27 @@ class ItemService:
     @staticmethod
     def get_item_by_id(self, item_id):
         return Item.query.get_or_404(item_id)
+
+    @staticmethod
+    def update_item(item_data):
+        item = Item.query.get_or_404(item_data)
+
+      #check if the user is the owner of the item
+        if item.user_id != item_data["user_id"]:
+            raise PermissionError('user does not have permission to update this item')
+        
+        if "title" in item_data:
+            item.title = item_data["title"]
+        if "description" in item_data:
+            item.description = item_data["description"]
+        if "price" in item_data:
+            item.price = item_data["price"]
+        if "category" in item_data:
+            item.category = ItemCategory(item_data["category"])
+        if "condition" in item_data:
+            item.condition = ItemCondition(item_data["condition"])
+        if "status" in item_data:
+            item.status = ItemStatus(item_data["status"])
+
+        db.session.commit()
+        return item
