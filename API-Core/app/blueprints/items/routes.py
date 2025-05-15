@@ -52,3 +52,14 @@ def get_all_item():
 def get_item_by_id(item_id):
     item = Item.query.get_or_404(item_id)
     return jsonify(ItemSchema().dump(item)), HTTPStatus.OK.value
+
+@items_crud_bp.route('/<int:item_id>', methods=['DELETE'])
+@jwt_required()
+def delete_item(Item_Id):
+    try:
+        ItemService.delete_item(Item_Id)
+        return '', HTTPStatus.NO_CONTENT.value
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), HTTPStatus.NOT_FOUND.value
+    except Exception as e:
+        return jsonify({"success": False, "error": "Failed to delete item"}), HTTPStatus.INTERNAL_SERVER_ERROR.value
