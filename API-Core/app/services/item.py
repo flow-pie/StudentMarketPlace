@@ -32,7 +32,6 @@ class ItemService:
     def update_item(item_data):
         item = Item.query.get_or_404(item_data)
 
-      #check if the user is the owner of the item
         if item.user_id != item_data["user_id"]:
             raise PermissionError('user does not have permission to update this item')
         
