@@ -27,3 +27,15 @@ class ItemService:
     @staticmethod
     def get_item_by_id(self, item_id):
         return Item.query.get_or_404(item_id)
+    
+    @staticmethod
+    def delete_item(item_id):
+        item = Item.query.get(item_id)
+        if not item:
+            raise ValueError(f"Item with id {item_id} not found")
+        try:
+            db.session.delete(item)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e
