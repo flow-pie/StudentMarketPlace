@@ -55,10 +55,10 @@ def get_item_by_id(item_id):
 
 @items_crud_bp.route('/<int:item_id>', methods=['DELETE'])
 @jwt_required()
-def delete_item(Item_Id):
+def delete_item(item_id):
     try:
-        ItemService.delete_item(Item_Id)
-        return '', HTTPStatus.NO_CONTENT.value
+        ItemService.delete_item(item_id)
+        return jsonify({"success": True, "message": f"Item {item_id} deleted successfully."}), HTTPStatus.NO_CONTENT
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), HTTPStatus.NOT_FOUND.value
     except Exception as e:
