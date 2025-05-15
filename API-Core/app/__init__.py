@@ -5,6 +5,9 @@ from datetime import timedelta
 import logging
 from werkzeug.exceptions import HTTPException
 
+from app.blueprints.item_images.images import images_crud_bp
+from app.config import Config
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,6 +17,10 @@ def create_app(config=None):
     """Application factory with enhanced configuration and error handling"""
     # Initialize Flask app
     app = Flask(__name__)
+
+    #initialize configuration file
+    app.config.from_object(Config)
+    Config.init_app(app)
 
     # Load environment variables
     load_dotenv()
@@ -134,11 +141,13 @@ def register_blueprints(app):
     from .blueprints.auth.routes import auth_bp
     from .blueprints.items.routes import items_crud_bp
     from .blueprints.routes import items_bp
+    from .blueprints.item_images.images import  images_crud_bp
 
     blueprints = [
         (auth_bp, '/api/auth'),
         (items_bp, '/api/admin'),
-        (items_crud_bp, '/api/items')
+        (items_crud_bp, '/api/items'),
+        (images_crud_bp, '/api/item')
     ]
 
     for blueprint, url_prefix in blueprints:
