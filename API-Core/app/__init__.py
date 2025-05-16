@@ -5,8 +5,9 @@ from datetime import timedelta
 import logging
 from werkzeug.exceptions import HTTPException
 
-from app.blueprints.item_images.images import images_crud_bp
-from app.config import Config
+from .blueprints import images_crud_bp
+from .blueprints import msg_bp
+from .config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -147,7 +148,8 @@ def register_blueprints(app):
         (auth_bp, '/api/auth'),
         (items_bp, '/api/admin'),
         (items_crud_bp, '/api/items'),
-        (images_crud_bp, '/api/item')
+        (images_crud_bp, '/api/item'),
+        (msg_bp, '/api/messages')
     ]
 
     for blueprint, url_prefix in blueprints:

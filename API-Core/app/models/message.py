@@ -18,6 +18,12 @@ class Message(db.Model):
         nullable=False,
         index=True
     )
+    receiver_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.user_id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
     content = db.Column(db.Text, nullable=False)
     sent_at = db.Column(
         db.DateTime,
@@ -34,7 +40,13 @@ class Message(db.Model):
     )
     sender = db.relationship(
         'User',
+        foreign_keys=[sender_id],
         backref=db.backref('sent_messages', lazy='dynamic')
+    )
+    receiver = db.relationship(
+        'User',
+        foreign_keys=[receiver_id],
+        backref=db.backref('received_messages', lazy='dynamic')
     )
 
     __table_args__ = (
