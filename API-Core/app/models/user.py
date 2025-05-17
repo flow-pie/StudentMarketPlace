@@ -42,24 +42,10 @@ class User(db.Model):
 
     # Relationships
     items = db.relationship('Item', back_populates='seller')
-    transactions_as_buyer = db.relationship(
-        'Transaction',
-        foreign_keys='Transaction.buyer_id',
-        back_populates='buyer',
-        overlaps="sales,purchases"
-    )
-    transactions_as_seller = db.relationship(
-        'Transaction',
-        foreign_keys='Transaction.seller_id',
-        back_populates='seller',
-        overlaps="sales,purchases"
-    )
-
-    conversation_participants = db.relationship(
-        'ConversationParticipant',
-        back_populates='user',
-        cascade='all, delete-orphan'
-    )
+    transactions_as_buyer = db.relationship('Transaction', foreign_keys='Transaction.buyer_id', back_populates='buyer',
+                                            lazy='dynamic')
+    transactions_as_seller = db.relationship('Transaction', foreign_keys='Transaction.seller_id', back_populates='seller',
+                                             lazy='dynamic')
 
     __table_args__ = (
         db.Index('idx_user_email', 'email'),
