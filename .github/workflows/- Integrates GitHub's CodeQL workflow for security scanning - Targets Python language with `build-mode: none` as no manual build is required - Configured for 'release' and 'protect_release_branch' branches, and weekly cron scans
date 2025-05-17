@@ -2,9 +2,9 @@ name: "CodeQL - Python Secure Analysis"
 
 on:
   push:
-    branches: [ "release", "protect_release_branch" ]
+    branches: [ "release", "protect_release_branch", "dev" ]
   pull_request:
-    branches: [ "release", "protect_release_branch" ]
+    branches: [ "release", "protect_release_branch", "dev" ]
   schedule:
     - cron: '17 17 * * 1'  # Every Monday at 17:17 UTC
 
