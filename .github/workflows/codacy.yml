@@ -24,18 +24,17 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 🔍 Run Codacy Analysis CLI
+      - name: 🔍 Run Codacy Analysis CLI (Bandit + Pylint)
         uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           verbose: true
           output: results.sarif
           format: sarif
+          directory: API-Core         # point at your Python code folder
           gh-code-scanning-compat: true
           max-allowed-issues: 2147483647
-          tools: |
-            bandit
-            pylint
+          tool: "bandit,pylint"
 
       - name: ☁️ Upload SARIF results to GitHub
         uses: github/codeql-action/upload-sarif@v3
