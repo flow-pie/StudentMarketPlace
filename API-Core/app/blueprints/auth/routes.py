@@ -29,6 +29,9 @@ def login():
     if user.account_status != AccountStatus.ACTIVE:
         return jsonify({"error": "Account not active"}), 403
 
+    if user.account_status == AccountStatus.BANNED:
+        return jsonify({"error": "Your account has been banned."}), 403
+
     # Update last login
     user.last_login = datetime.now(timezone.utc)
     db.session.commit()

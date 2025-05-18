@@ -34,6 +34,7 @@ class User(db.Model):
     student_id = db.Column(db.String(20), unique=True)
     profile_picture = db.Column(db.String(255))
     account_status = db.Column(db.Enum(AccountStatus), default=AccountStatus.UNVERIFIED, nullable=False)
+    ban_reason = db.Column(db.String(512))
     registered_on = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     last_login = db.Column(db.DateTime)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
@@ -72,7 +73,7 @@ class User(db.Model):
         """Create hashed password."""
         self.password_hash = generate_password_hash(password)
 
-    #return true if password match eg during login
+    #return true if password match  during login
     def check_password(self, password):
         """Check hashed password."""
         return check_password_hash(self.password_hash, password)
@@ -85,3 +86,13 @@ class User(db.Model):
     def activate_account(self):
         self.account_status = AccountStatus.ACTIVE
         self.email_verified = True
+
+    #banning a user
+    def ban_user(self, reason=None):
+        self.account_status = AccountStatus.BANNED
+        self.ban_reason = reason
+
+    #unbanning a user
+    def unban_user(self):
+        self.account_status = AccountStatus.ACTIVE
+        self.ban_reason = None

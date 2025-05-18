@@ -5,8 +5,8 @@ from datetime import timedelta
 import logging
 from werkzeug.exceptions import HTTPException
 
-from app.blueprints.item_images.images import images_crud_bp
-from app.config import Config
+from .blueprints import images_crud_bp
+from .config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
