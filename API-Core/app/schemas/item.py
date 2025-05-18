@@ -5,7 +5,6 @@ from enum import Enum
 
 from ..models.user import UserInstitution
 
-
 class ItemCreateSchema(Schema):
     title = fields.Str(required=True, validate=validate.Length(min=1, max=100))
     description = fields.Str(required=True)

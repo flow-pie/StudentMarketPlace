@@ -4,7 +4,6 @@ from ..models import Item, ItemStatus, ItemCategory, ItemCondition, User
 from ..extensions import db
 from ..models.user import UserInstitution
 
-
 class ItemService:
     @staticmethod
     def create_item(user_id, item_data):
@@ -128,4 +127,3 @@ class ItemService:
         except Exception as e:
             db.session.rollback()
             raise e
-

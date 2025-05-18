@@ -2,7 +2,6 @@ from http import HTTPStatus
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import  current_user, jwt_required
 from sqlalchemy.exc import SQLAlchemyError
-
 from ...extensions import db
 from ...models import Item, User, ItemCategory
 from ...schemas.item import ItemCreateSchema, ItemSchema, ItemFilterSchema, PaginatedItemSchema
@@ -54,7 +53,6 @@ def get_all_item():
 def get_item_by_id(item_id):
     item = Item.query.get_or_404(item_id)
     return jsonify(ItemSchema().dump(item)), HTTPStatus.OK.value
-
 
 @items_crud_bp.route('/params', methods=['GET'])
 def get_items():
@@ -144,4 +142,3 @@ def update_item(item_id):
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({"success": False, "error": "Database operation failed"}), HTTPStatus.INTERNAL_SERVER_ERROR.value
-
