@@ -34,7 +34,7 @@ jobs:
           gh-code-scanning-compat: true
           max-allowed-issues: 2147483647
           tool: "bandit,pylint"
-          directory: API-Core/app
+          directory: ${{ github.workspace }}/API-Core/app
 
       - name: ☁️ Upload SARIF results to GitHub
         uses: github/codeql-action/upload-sarif@v3
