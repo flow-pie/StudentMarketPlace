@@ -24,7 +24,7 @@ structure.txt
 *.db
 
 # Environment variables
-.env
+.venv
 
 # Flask/Django instance folders
 instance/
