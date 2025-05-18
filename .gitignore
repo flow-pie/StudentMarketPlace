@@ -47,7 +47,7 @@ migrations/
 instance/
 *.pyc
 *.db
-
+.venv/
 # C extensions
 *.so
 
