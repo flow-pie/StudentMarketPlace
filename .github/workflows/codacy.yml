@@ -1,42 +1,42 @@
-name: Codacy Security Scan
-
-on:
-  push:
-    branches: [ "release", "protect_release_branch" ]
-  pull_request:
-    branches: [ "release" ]
-  schedule:
-    - cron: '19 10 * * 6'  # Every Saturday at 10:19 UTC
-
-permissions:
-  contents: read
-
-jobs:
-  codacy-security-scan:
-    name: Codacy Python Security Scan
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🔍 Run Codacy Analysis CLI (Bandit + Pylint)
-        uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
-        with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          verbose: true
-          output: results.sarif
-          format: sarif
-          gh-code-scanning-compat: true
-          max-allowed-issues: 2147483647
-          tool: "bandit,pylint"
-          directory: ${{ github.workspace }}/API-Core/app
-
-      - name: ☁️ Upload SARIF results to GitHub
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: results.sarif
+#name: Codacy Security Scan
+#
+#on:
+#  push:
+#    branches: [ "release", "protect_release_branch" ]
+#  pull_request:
+#    branches: [ "release" ]
+#  schedule:
+#    - cron: '19 10 * * 6'  # Every Saturday at 10:19 UTC
+#
+#permissions:
+#  contents: read
+#
+#jobs:
+#  codacy-security-scan:
+#    name: Codacy Python Security Scan
+#    runs-on: ubuntu-latest
+#    permissions:
+#      contents: read
+#      security-events: write
+#      actions: read
+#
+#    steps:
+#      - name: 📥 Checkout code
+#        uses: actions/checkout@v4
+#
+#      - name: 🔍 Run Codacy Analysis CLI (Bandit + Pylint)
+#        uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
+#        with:
+#          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+#          verbose: true
+#          output: results.sarif
+#          format: sarif
+#          gh-code-scanning-compat: true
+#          max-allowed-issues: 2147483647
+#          tool: "bandit,pylint"
+#          directory: ${{ github.workspace }}/API-Core/app
+#
+#      - name: ☁️ Upload SARIF results to GitHub
+#        uses: github/codeql-action/upload-sarif@v3
+#        with:
+#          sarif_file: results.sarif
