@@ -42,6 +42,14 @@ htmlcov/
 .coverage
 .tox/
 .nox/
+StudentMarketPlace/API-Core/.env
+migrations/
+instance/
+*.pyc
+*.db
+
+# C extensions
+*.so
 
 # Distribution / packaging
 build/
@@ -71,6 +79,17 @@ coverage.xml
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
 
 # Sphinx documentation
 docs/_build/

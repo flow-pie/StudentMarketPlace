@@ -7,7 +7,7 @@ class ItemCategory(Enum):
     ELECTRONICS = 1
     BOOKS = 2
     CLOTHING = 3
-    ETC = 4
+    OTHER = 4
 
 
 class ItemCondition(str, Enum):
@@ -40,4 +40,15 @@ class Item(db.Model):
 
     seller = db.relationship('User', back_populates='items')
 
-
+    def to_dict(self):
+        return {
+            "item_id": self.item_id,
+            "title": self.title,
+            "description": self.description,
+            "price": float(self.price),
+            "category": self.category.name if self.category else None,
+            "condition": self.condition.value if self.condition else None,
+            "status": self.status.value,
+            "school": self.seller.institution.value if self.seller and self.seller.institution else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
