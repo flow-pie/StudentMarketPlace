@@ -3,12 +3,13 @@ from sqlalchemy.exc import IntegrityError
 from flask import jsonify
 from flask import Blueprint, request, jsonify
 from werkzeug.routing import ValidationError
-from ...schemas.auth import RegistrationSchema
-from ...models.user import User, AccountStatus
-from ...extensions import db
+from app.schemas.auth import RegistrationSchema
+from app.models.user import User, AccountStatus
+from app.extensions import db
 from flask_jwt_extended import create_access_token
 from datetime import timedelta, timezone, datetime
-from ...schemas.auth import LoginSchema
+from app.schemas.auth import LoginSchema
+from app.services.auth import AuthService
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -37,15 +38,7 @@ def login():
     db.session.commit()
 
     # Create JWT token
-    access_token = create_access_token(
-        identity=str(user.user_id),
-        additional_claims={
-            'name' : user.get_full_name(),
-            'email': user.email,
-            'is_admin': user.is_admin
-        }
-    )
-
+    access_token=AuthService.generate_token(user)
     return jsonify({
         "message": "Login successful",
         "access_token": access_token,
@@ -55,6 +48,7 @@ def login():
             'name': user.get_full_name()
         }
     })
+
 
 # app/blueprints/auth/routes.py
 @auth_bp.route('/register', methods=['POST'])

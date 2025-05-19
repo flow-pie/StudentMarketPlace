@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, current_user
 from sqlalchemy.exc import SQLAlchemyError
-
 from ...config import Config
 from ...models import Item, ItemImage
 from ...services.item_images import ImageService

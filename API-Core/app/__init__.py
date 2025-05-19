@@ -4,9 +4,9 @@ import os
 from datetime import timedelta
 import logging
 from werkzeug.exceptions import HTTPException
-
 from .blueprints import images_crud_bp
 from .blueprints import msg_bp
+from .blueprints.admin.users import admin_bp
 from .config import Config
 
 # Configure logging
@@ -47,7 +47,7 @@ def configure_app(app, config=None):
     app.config.update({
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
         'JWT_ERROR_MESSAGE_KEY': 'message',
-        'PROPAGATE_EXCEPTIONS': True,  # Better error propagation
+        'PROPAGATE_EXCEPTIONS': True,
         'JWT_ACCESS_TOKEN_EXPIRES': timedelta(hours=1),
         'JWT_REFRESH_TOKEN_EXPIRES': timedelta(days=30),
     })
@@ -149,7 +149,8 @@ def register_blueprints(app):
         (items_bp, '/api/admin'),
         (items_crud_bp, '/api/items'),
         (images_crud_bp, '/api/item'),
-        (msg_bp, '/api/messages')
+        (msg_bp, '/api/messages'),
+        (admin_bp, '/api/admin')
     ]
 
     for blueprint, url_prefix in blueprints:
