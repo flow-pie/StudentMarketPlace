@@ -7,4 +7,3 @@ def create_user_service(username, email, password ):
     db.session.add(user)
     db.session.commit()
     return user
-

@@ -3,7 +3,7 @@ from enum import Enum
 
 from sqlalchemy.ext.hybrid import hybrid_property
 
-from ..extensions import db
+from app.extensions import db
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
@@ -110,3 +110,16 @@ class User(db.Model):
     def unban_user(self):
         self.account_status = AccountStatus.ACTIVE
         self.ban_reason = None
+
+    def to_admin_dict(self):
+        return {
+            'user_id': self.user_id,
+            'email': self.email,
+            'full_name': self.get_full_name(),
+            'institution': self.institution.value if self.institution else None,
+            'account_status': self.account_status.value,
+            'is_admin': self.is_admin,
+            'registered_on': self.registered_on.isoformat(),
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'ban_reason': self.ban_reason
+        }
