@@ -116,12 +116,10 @@ update_schema = ItemUpdateSchema()
 @jwt_required()
 def update_item(item_id):
     try:
-        # 2. Use the correct update schema for validation
         errors = update_schema.validate(request.json)
         if errors:
             return jsonify({"success": False, "errors": errors}), HTTPStatus.BAD_REQUEST.value
 
-        # 3. Pass correct parameters to service
         item = ItemService.update_item(
             item_data={
                 "item_id": item_id,  # Fix item lookup
