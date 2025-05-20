@@ -37,17 +37,22 @@ def login():
     user.last_login = datetime.now(timezone.utc)
     db.session.commit()
 
-    # Create JWT token
-    access_token=AuthService.generate_token(user)
-    return jsonify({
-        "message": "Login successful",
-        "access_token": access_token,
-        "user": {
-            "id": user.user_id,
-            "email": user.email,
-            'name': user.get_full_name()
+    # unpacking tokens
+    access_token, refresh_token=AuthService.generate_token(user)
+    return jsonify(
+        {
+            "message": "Login successful",
+            "tokens":{
+                "access_token" : access_token,
+                "refresh_token" : refresh_token
+            },
+            "user": {
+                "id": user.user_id,
+                "email": user.email,
+                'name': user.get_full_name()
+            }
         }
-    })
+    ), 200
 
 
 # app/blueprints/auth/routes.py
