@@ -123,3 +123,5 @@ class User(db.Model):
             'last_login': self.last_login.isoformat() if self.last_login else None,
             'ban_reason': self.ban_reason
         }
+
+
