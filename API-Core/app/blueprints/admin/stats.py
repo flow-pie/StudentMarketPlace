@@ -1,13 +1,15 @@
 from datetime import timezone, datetime
 
-from flask import jsonify
+from flask import jsonify, Blueprint
 
-from app.blueprints.admin.users import admin_bp
-from app.models import User, Item, ItemStatus, Message
-from app.models.report import Report
+from ...decorators.auth import admin_required
+from ...models import User, Item, ItemStatus, Message
+from ...models.report import Report
 
+admin_stat_bp = Blueprint('stats', __name__)
 
-@admin_bp.route("/stats", methods=["GET"])
+@admin_stat_bp.route("/stats", methods=["GET"])
+@admin_required
 def get_admin_stats():
     """Returns aggregated platform statistics for the admin dashboard."""
     now = datetime.now(timezone.utc)

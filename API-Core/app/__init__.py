@@ -5,6 +5,7 @@ from datetime import timedelta
 import logging
 from werkzeug.exceptions import HTTPException
 
+from .blueprints.admin.stats import admin_stat_bp
 from .config import Config
 
 # Configure logging
@@ -155,6 +156,7 @@ def register_blueprints(app):
         (admin_bp, '/api/admin'),
         (admin_listings_bp, '/api/admin'),
         (report_bp, '/api/admin'),
+        (admin_stat_bp, '/api/admin')
     ]
 
     for blueprint, url_prefix in blueprints:
