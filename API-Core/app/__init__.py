@@ -7,6 +7,8 @@ from werkzeug.exceptions import HTTPException
 
 from .blueprints.admin.stats import admin_stat_bp
 from .config import Config
+from .extensions import db
+from .models.user import TokenBlockList
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -134,6 +136,13 @@ def configure_jwt_callbacks(jwt):
             'message': 'Missing or invalid authorization',
             'error': 'authorization_required'
         }), 401
+
+    @jwt.token_in_blocklist_loader
+    def token_in_blocklist_callback(jwt_header, jwt_payload):
+        jti = jwt_payload['jti']
+        token = db.session.query(TokenBlockList).filter(TokenBlockList.jti==jti).scalar()
+        return token is not None
+
 
 
 def register_blueprints(app):

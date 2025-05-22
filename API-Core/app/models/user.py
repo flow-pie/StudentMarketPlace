@@ -123,3 +123,16 @@ class User(db.Model):
             'last_login': self.last_login.isoformat() if self.last_login else None,
             'ban_reason': self.ban_reason
         }
+
+
+class TokenBlockList(db.Model):
+    id=db.Column(db.Integer, primary_key=True)
+    jti=db.Column(db.String(50), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return '<TokenBlockList %r>' % self.jti
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
