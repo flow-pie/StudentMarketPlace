@@ -10,50 +10,26 @@ on:
 
 jobs:
   codacy-security-scan:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest  # Single consistent environment
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Codacy CLI
-        shell: bash
-        run: |
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            curl -L https://github.com/codacy/codacy-analysis-cli/releases/latest/download/codacy-analysis-cli-windows.exe -o codacy-analysis-cli.exe
-            chmod +x codacy-analysis-cli.exe
-            echo "$(pwd)" >> $GITHUB_PATH
-          else
-            curl -L https://github.com/codacy/codacy-analysis-cli/releases/latest/download/codacy-analysis-cli-$(echo $RUNNER_OS | tr '[:upper:]' '[:lower:]') -o codacy-analysis-cli
-            chmod +x codacy-analysis-cli
-            sudo mv codacy-analysis-cli /usr/local/bin/
-          fi
-
-      - name: Run Analysis
-        shell: bash
-        run: |
-          cd API-Core
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            ./codacy-analysis-cli.exe analyze \
-              --project-token ${{ secrets.CODACY_PROJECT_TOKEN }} \
-              --verbose \
-              --output results.sarif \
-              --format sarif \
-              --gh-code-scanning-compat true \
-              --max-allowed-issues 2147483647
-          else
-            codacy-analysis-cli analyze \
-              --project-token ${{ secrets.CODACY_PROJECT_TOKEN }} \
-              --verbose \
-              --output results.sarif \
-              --format sarif \
-              --gh-code-scanning-compat true \
-              --max-allowed-issues 2147483647
-          fi
+      - name: Run Codacy Analysis (via Docker)
+        uses: docker://codacy/codacy-analysis-cli:latest
+        with:
+          args: >-
+            analyze
+            --project-token ${{ secrets.CODACY_PROJECT_TOKEN }}
+            --verbose
+            --output results.sarif
+            --format sarif
+            --gh-code-scanning-compat true
+            --max-allowed-issues 2147483647
+            /github/workspace/API-Core
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: API-Core/results.sarif
+          sarif_file: results.sarif
+          checkout_path: ${{ github.workspace }}
