@@ -22,9 +22,9 @@ jobs:
 
       - name: Install Codacy CLI
         run: |
-          curl -Ls https://github.com/codacy/codacy-analysis-cli/releases/latest/download/codacy-analysis-cli-linux-amd64 > codacy-analysis-cli
+          curl -L -o codacy-analysis-cli https://github.com/codacy/codacy-analysis-cli/releases/latest/download/codacy-analysis-cli-linux-amd64
           chmod +x codacy-analysis-cli
-          sudo mv codacy-analysis-cli /usr/local/bin/
+          sudo mv codacy-analysis-cli /usr/local/bin/      
 
       - name: Run Codacy Analysis CLI inside API-Core
         run: |
