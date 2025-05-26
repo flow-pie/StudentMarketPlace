@@ -2,6 +2,8 @@
 import os
 
 class Config:
+    # enviroment setup
+    ENV = "development"
     # File Upload Configuration
     UPLOAD_FOLDER = os.path.abspath('uploads')
     MEDIA_URL = '/media/'

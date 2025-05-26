@@ -1,6 +1,4 @@
-# API-Core/app/errors.py
 import logging
-import platform
 from pathlib import Path
 from flask import jsonify
 from werkzeug.exceptions import HTTPException
@@ -24,50 +22,80 @@ class ValidationError(APIError):
         super().__init__(message, code, 400)
 
 
+class RedactingFilter(logging.Filter):
+    """Filter to redact sensitive information from logs"""
+
+    def filter(self, record):
+        sensitive_keys = ['password', 'token', 'authorization', 'secret']
+        msg = str(record.msg)
+        for key in sensitive_keys:
+            if key.lower() in msg.lower():
+                record.msg = msg.replace(key, '***')
+        return True
+
+
 def configure_logging(app):
-    # Determine log directory based on environment
-    if platform.system() == 'Linux':
-        log_dir = Path('/var/log/student-marketplace/')
-    elif platform.system() == 'Windows':
-        log_dir = Path('C:\\student-marketplace\\logs\\')
-    else:
-        log_dir = Path('./logs/')
+    """Centralized logging configuration"""
+    # Clear existing handlers
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+        handler.close()
 
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / 'app-errors.log'
+    # Create logs directory if it doesn't exist
+    log_dir = Path(app.root_path) / 'logs'
+    log_dir.mkdir(exist_ok=True)
 
-    # Configure rotating file handler
-    handler = RotatingFileHandler(
-        log_file,
-        maxBytes=1024 * 1024 * 10,  # 10MB
-        backupCount=10,
-        encoding='utf-8'
-    )
+    # Set up log file path
+    log_file = log_dir / 'app_errors.log'
 
-    class RedactingFilter(logging.Filter):
-        def filter(self, record):
-            sensitive_keys = ['password', 'token', 'authorization']
-            for key in sensitive_keys:
-                if key in record.msg.lower():
-                    record.msg = record.msg.replace(key, '***')
-            return True
-
-    handler.addFilter(RedactingFilter())
-    handler.setLevel(logging.ERROR)
+    # Create formatter
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    handler.setFormatter(formatter)
-    app.logger.addHandler(handler)
-    app.logger.setLevel(logging.ERROR)
+
+    # Configure file handler
+    file_handler = RotatingFileHandler(
+        filename=log_file,
+        maxBytes=5 * 1024 * 1024,  # 5MB
+        backupCount=3,
+        encoding='utf-8'
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    file_handler.addFilter(RedactingFilter())
+
+    # Configure console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    console_handler.addFilter(RedactingFilter())
+
+    # Apply to root logger
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[file_handler, console_handler]
+    )
+
+    # Configure Flask's app logger
+    app.logger.handlers.clear()
+    app.logger.addHandler(file_handler)
+    app.logger.addHandler(console_handler)
+    app.logger.setLevel(logging.INFO)
+
+    # Configure werkzeug logger
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.handlers.clear()
+    werkzeug_logger.addHandler(file_handler)
+    werkzeug_logger.addHandler(console_handler)
 
 
 def register_error_handlers(app):
+    """Register error handlers for the application"""
+
     @app.errorhandler(APIError)
     def handle_api_error(error):
         """Convert APIError instances to proper JSON responses"""
         app.logger.error(f"API Error [{error.code}]: {error.message}")
-
         response = jsonify({
             'error': error.code,
             'message': error.message,
@@ -78,18 +106,20 @@ def register_error_handlers(app):
 
     @app.errorhandler(HTTPException)
     def handle_http_exception(e):
+        """Handle Werkzeug HTTP exceptions"""
         app.logger.error(f"HTTP Error {e.code}: {e.description}")
         return jsonify({
-            'error': True,
+            'error': e.code,
             'message': e.description,
             'code': e.name.replace(' ', '_').upper()
         }), e.code
 
     @app.errorhandler(Exception)
     def handle_unexpected_error(e):
+        """Handle all unexpected exceptions"""
         app.logger.exception("Unhandled exception occurred")
         return jsonify({
-            'error': True,
+            'error': 'SERVER_ERROR',
             'message': 'An unexpected error occurred',
             'code': 'INTERNAL_SERVER_ERROR'
         }), 500

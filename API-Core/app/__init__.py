@@ -14,28 +14,34 @@ from .models.user import TokenBlockList
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 def create_app(config=None):
     """Application factory with enhanced configuration and error handling"""
     app = Flask(__name__)
 
-    #Load environment variables FIRST
+    # Load environment variables FIRST
     load_dotenv()
 
-    #Configure application settings
+    # Configure application settings
     configure_app(app, config)
 
-    #Configure logging
+    # Configure logging FIRST before any other operations
     configure_logging(app)
+    logger = logging.getLogger(__name__)
+    logger.info("Initializing application...")
 
-    #Initialize extensions
+    # Initialize extensions
     initialize_extensions(app)
 
-    #Register error handlers (before blueprints)
+    # Register error handlers (before blueprints)
     register_error_handlers(app)
 
-    #Register blueprints
+    # Register blueprints
     register_blueprints(app)
+
+    # Configure teardown context
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db.session.remove()
 
     logger.info("Application initialized successfully")
     return app
@@ -59,7 +65,8 @@ def configure_app(app, config=None):
         'JWT_REFRESH_TOKEN_EXPIRES': timedelta(days=30),
         'JWT_ERROR_MESSAGE_KEY': 'message',
         'PROPAGATE_EXCEPTIONS': True,
-        'SQLALCHEMY_TRACK_MODIFICATIONS': False
+        'SQLALCHEMY_TRACK_MODIFICATIONS': False,
+        'ENV': os.getenv('FLASK_ENV', 'development'),
     })
 
     if not app.config['JWT_SECRET_KEY']:
@@ -84,7 +91,10 @@ def initialize_extensions(app):
         configure_jwt_callbacks(jwt)
 
     except Exception as e:
-        logger.critical(f"Extension initialization failed: {str(e)}", exc_info=True)
+        logging.getLogger(__name__).critical(
+            f"Extension initialization failed: {str(e)}",
+            exc_info=True
+        )
         raise
 
 
@@ -147,10 +157,12 @@ def register_blueprints(app):
         try:
             app.register_blueprint(blueprint, url_prefix=url_prefix)
         except ValueError as e:
-            logger.error(f"Blueprint registration failed: {str(e)}")
+            logging.getLogger(__name__).error(
+                f"Blueprint registration failed: {str(e)}"
+            )
             raise
 
-    logger.info(f"Registered {len(blueprints)} blueprints")
+    logging.getLogger(__name__).info(f"Registered {len(blueprints)} blueprints")
 
 
 def register_error_handlers(app):
@@ -158,6 +170,7 @@ def register_error_handlers(app):
 
     @app.errorhandler(APIError)
     def handle_api_error(error):
+        app.logger.error(f"API Error [{error.code}]: {error.message}")
         response = jsonify({
             'error': error.code,
             'message': error.message,
