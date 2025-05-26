@@ -3,14 +3,14 @@ from datetime import datetime
 import bleach
 import re
 
-
 class SecureMessageSchema(Schema):
     """Base schema with common security validations"""
-
     def on_bind_field(self, field_name, field_obj):
         if isinstance(field_obj, fields.Str):
-            if not hasattr(field_obj, 'validate'):
+            # Initialize validate list if it doesn't exist
+            if not hasattr(field_obj, 'validate') or field_obj.validate is None:
                 field_obj.validate = []
+            # Add our security validators
             field_obj.validate.extend([
                 self._sanitize_html,
                 self._validate_safe_chars
@@ -30,7 +30,6 @@ class SecureMessageSchema(Schema):
             raise ValidationError("Message contains potentially dangerous characters")
         return value
 
-
 class MessageCreateSchema(SecureMessageSchema):
     item_id = fields.Int(
         required=True,
@@ -44,21 +43,9 @@ class MessageCreateSchema(SecureMessageSchema):
         validate=[
             validate.Length(min=1, max=1000),
             validate.Regexp(r'^[\w\s\-.,!?@\'"():;\n]+$',
-                            error="Contains invalid characters or formatting")
+                          error="Contains invalid characters or formatting")
         ]
     )
-
-    @validates('content')
-    def validate_content(self, value):
-        """Additional content validation"""
-        # Block common spam patterns
-        spam_phrases = [
-            'http://', 'https://', 'www.',
-            'buy now', 'click here', 'limited offer'
-        ]
-        if any(phrase in value.lower() for phrase in spam_phrases):
-            raise ValidationError("Message contains blocked content")
-
 
 class MessageSchema(SecureMessageSchema):
     message_id = fields.Int(dump_only=True)
@@ -67,12 +54,10 @@ class MessageSchema(SecureMessageSchema):
     receiver_id = fields.Int(dump_only=True)
     content = fields.Str(dump_only=True)
     sent_at = fields.DateTime(dump_only=True)
-    is_read = fields.Bool(dump_only=True)
 
     # Rate limiting metadata (for client-side handling)
     can_reply = fields.Bool(dump_only=True)
     next_message_allowed_at = fields.DateTime(dump_only=True)
-
 
 class MessageUpdateSchema(SecureMessageSchema):
     content = fields.Str(
@@ -83,7 +68,6 @@ class MessageUpdateSchema(SecureMessageSchema):
         ]
     )
     is_read = fields.Bool(required=False)
-
 
 class MessageFilterSchema(SecureMessageSchema):
     conversation_id = fields.Int(

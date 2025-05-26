@@ -25,16 +25,19 @@ def validate_safe_text(value):
     return value
 
 
-# ---- Base Schema ----
 class SecureSchema(Schema):
     """Base schema with automatic security validation"""
 
     def on_bind_field(self, field_name, field_obj):
         if isinstance(field_obj, fields.Str):
-            if not hasattr(field_obj, 'validate'):
-                field_obj.validate = []
-            field_obj.validate.extend([sanitize_html, validate_safe_text])
-
+            # Get existing validators
+            existing_validators = []
+            if hasattr(field_obj, 'validate'):
+                if callable(field_obj.validate):
+                    existing_validators = [field_obj.validate]
+                elif isinstance(field_obj.validate, (list, tuple)):
+                    existing_validators = list(field_obj.validate)
+            field_obj.validate = existing_validators + [sanitize_html, validate_safe_text]
 
 # ---- Item Schemas ----
 class ItemCreateSchema(SecureSchema):
