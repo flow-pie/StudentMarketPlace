@@ -3,8 +3,8 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import  current_user, jwt_required
 from sqlalchemy.exc import SQLAlchemyError, DatabaseError
 
-import app
-from ...errors import APIError
+from ... import logger
+from ...errors import APIError, ValidationError
 from ...extensions import db
 from ...models import Item, User, ItemCategory
 from ...schemas.item import ItemCreateSchema, ItemSchema, ItemFilterSchema, PaginatedItemSchema
@@ -93,32 +93,39 @@ def get_item_by_id(item_id):
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
         )
 
+
 @items_crud_bp.route('/params', methods=['GET'])
 def get_items():
     try:
         filters = ItemFilterSchema().load(request.args)
         result = ItemService.get_filtered_items(filters)
 
-        return jsonify({
-            'items': [item.to_dict() for item in result.items],
+        return PaginatedItemSchema().dump({
+            'items': result.items,
             'total': result.total,
             'page': result.page,
             'per_page': result.per_page
         })
 
-    except ValueError as e:
-        raise APIError(
-            message="Invalid filters provided",
-            code="INVALID_FILTER",
-            status_code=HTTPStatus.BAD_REQUEST.value
-        )
-    except Exception:
-        raise APIError(
-            message="An unexpected error occurred",
-            code="SERVER_ERROR",
-            status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
-        )
+    except ValidationError as ve:
+        return jsonify({
+            "error": "VALIDATION_ERROR",
+            "details": ve.messages
+        }), 400
 
+    except SQLAlchemyError as e:
+        logger.error(f"Database error: {str(e)}")
+        return jsonify({
+            "error": "DATABASE_ERROR",
+            "message": "Could not retrieve items"
+        }), 500
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        return jsonify({
+            "error": "SERVER_ERROR",
+            "message": "An unexpected error occurred"
+        }), 500
 
 @items_crud_bp.route('paginated', methods=['GET'])
 def get_page_items():

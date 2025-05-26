@@ -114,21 +114,27 @@ class ItemSchema(SecureSchema):
 
 
 class ItemFilterSchema(SecureSchema):
-    category = EnumField(ItemCategory, by_value=True, required=False)
-    school = EnumField(UserInstitution, by_value=True, required=False)
-    min_price = fields.Float(
-        required=False,
-        validate=[
-            validate.Range(min=0),
-            validate.Regexp(r'^\d{1,5}(\.\d{1,2})?$')
-        ]
+    category = EnumField(
+        ItemCategory,
+        by_value=False,
+        required=False
     )
-    max_price = fields.Float(
+    school = EnumField(
+        UserInstitution,
+        by_value=True,
+        required=False
+    )
+    min_price = fields.Decimal(
         required=False,
-        validate=[
-            validate.Range(min=0),
-            validate.Regexp(r'^\d{1,5}(\.\d{1,2})?$')
-        ]
+        places=2,
+        validate=validate.Range(min=0),
+        metadata={"strict": True}
+    )
+    max_price = fields.Decimal(
+        required=False,
+        places=2,
+        validate=validate.Range(min=0),
+        metadata={"strict": True}
     )
     page = fields.Int(
         load_default=1,

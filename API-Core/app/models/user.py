@@ -7,12 +7,11 @@ from ..extensions import db
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
-class UserInstitution(Enum):
+class UserInstitution(str, Enum):
     POLYTECHNIC = 'Polytechnic'
     UNIVERSITY = 'University'
     COLLEGE = 'College'
     OTHER = 'Other'
-
 
 class AccountStatus(Enum):
     ACTIVE = 'Active'
