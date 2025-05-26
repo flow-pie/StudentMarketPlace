@@ -15,7 +15,7 @@ from app import create_app
 from app.extensions import db
 from app.config import Config
 
-# Initialize colorama for colored console output
+# colored console output
 init(autoreset=True)
 
 
@@ -27,19 +27,17 @@ def configure_logging():
 
     log_file = log_dir / 'app_errors.log'
 
-    # Clear any existing log handlers
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
         handler.close()
 
-    # Create formatter
     formatter = logging.Formatter(
         '%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    # File handler with rotation (5MB per file, keep 3 backups)
+    #(5MB per file, keep 3 backups)
     file_handler = RotatingFileHandler(
         filename=log_file,
         maxBytes=5 * 1024 * 1024,  # 5MB
@@ -54,12 +52,12 @@ def configure_logging():
     console_handler.setFormatter(formatter)
     console_handler.setLevel(logging.INFO)
 
-    # Configure root logger
+    # root logger
     root_logger.setLevel(logging.INFO)
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
-    # Configure Flask's logger
+    # Flask's logger
     flask_logger = logging.getLogger('werkzeug')
     flask_logger.handlers.clear()
     flask_logger.addHandler(file_handler)
@@ -68,7 +66,6 @@ def configure_logging():
     return str(log_file.absolute())
 
 
-# Configure logging before anything else
 log_file_path = configure_logging()
 logger = logging.getLogger(__name__)
 logger.info(f"Logging system initialized. Log file: {log_file_path}")
@@ -102,7 +99,7 @@ def initialize_database():
 
             if Config.ENV == 'development':
                 logger.info("Running in development mode")
-                # db.drop_all()  # Uncomment if needed
+                # db.drop_all()  # Uncomment if  you want to drop all
                 # db.create_all()
 
             db.metadata.create_all(bind=db.engine, checkfirst=True)
