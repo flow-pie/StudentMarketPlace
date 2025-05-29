@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from http import HTTPStatus
 
+from markupsafe import escape
 from sqlalchemy.exc import SQLAlchemyError
 
 from ...errors import APIError
@@ -41,7 +42,7 @@ def delete_listing(item_id):
         db.session.commit()
 
         return {
-            "message": f"Listing {item_id} deleted successfully"
+            "message": f"Listing {escape(str(item_id))} deleted successfully"
         }, HTTPStatus.OK.value
 
     except SQLAlchemyError:
