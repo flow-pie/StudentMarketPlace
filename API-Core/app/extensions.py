@@ -1,5 +1,4 @@
-# app/extensions.py
-
+# API-Core/app/extensions.py
 import os
 import logging
 from datetime import timedelta
@@ -8,21 +7,38 @@ from flask_jwt_extended import JWTManager
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
+from flask_marshmallow import Marshmallow
+from marshmallow import ValidationError as MarshmallowValidationError
+from .errors import ValidationError, APIError
 
 # ——— Set up shared extensions ———
 db = SQLAlchemy()
 migrate = Migrate()
 cors = CORS()
 jwt = JWTManager()
+ma = Marshmallow()
 
-# Configure a dedicated logger for JWT events
-jwt_logger = logging.getLogger('jwt')
-handler = logging.StreamHandler()
-handler.setFormatter(
-    logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-)
-jwt_logger.addHandler(handler)
-jwt_logger.setLevel(logging.DEBUG)
+
+def handle_ma_validation_error(e):
+    """Convert marshmallow validation errors to our APIError format"""
+    error_messages = []
+    for field, errors in e.messages.items():
+        if isinstance(errors, list):
+            error_messages.append(f"{field}: {', '.join(errors)}")
+        elif isinstance(errors, dict):
+            for subfield, suberrors in errors.items():
+                error_messages.append(f"{field}.{subfield}: {', '.join(suberrors)}")
+
+    raise ValidationError(
+        message="Validation failed: " + "; ".join(error_messages),
+        code="VALIDATION_ERROR"
+    )
+
+
+# Configure Marshmallow to use our error handler
+ma.SQLAlchemyAutoSchema.OPTIONS_CLASS.include_relationships = True
+ma.SQLAlchemyAutoSchema.OPTIONS_CLASS.include_fk = True
+ma.handle_error = handle_ma_validation_error
 
 
 def init_app(app):
@@ -33,7 +49,7 @@ def init_app(app):
 
 
 def init_jwt(app):
-    """Configure JWT, register all identity loaders and error handlers."""
+    """Configure JWT with standardized error responses and logging."""
     # ——— Core JWT settings ———
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
@@ -44,88 +60,96 @@ def init_jwt(app):
     app.config['JWT_COOKIE_CSRF_PROTECT'] = False
     app.config['JWT_CSRF_CHECK_FORM'] = False
 
-    #Exceptions bubble up for detailed logging ———
+    # Exceptions bubble up for detailed logging
     app.config['PROPAGATE_EXCEPTIONS'] = True
-    app.config['JWT_ERROR_MESSAGE_KEY'] = 'detail'
+    app.config['JWT_ERROR_MESSAGE_KEY'] = 'message'
 
     # Initialize the JWTManager
     jwt.init_app(app)
-    jwt_logger.debug(f"JWT Secret Key: {'set' if app.config['JWT_SECRET_KEY'] else 'missing'}")
+    app.logger.debug(f"JWT Secret Key: {'set' if app.config['JWT_SECRET_KEY'] else 'missing'}")
 
     from .models import User  # avoid circular import
 
     @jwt.user_identity_loader
     def user_identity_lookup(user):
-        """
-        Get the identity used in the 'sub' claim.
-        Parameters:
-          - user: a User model instance
-        Returns:
-          - user.user_id (int)
-        """
+        """Get the identity used in the 'sub' claim."""
         try:
             return str(user.user_id)
         except AttributeError as e:
-            jwt_logger.error(f"user_identity_lookup failed: {e}")
-            return None
+            app.logger.error(f"user_identity_lookup failed: {e}")
+            raise APIError(
+                message="User identity lookup failed",
+                code="AUTHENTICATION_ERROR",
+                status_code=401
+            )
 
     @jwt.user_lookup_loader
     def user_lookup_callback(_jwt_header, jwt_data):
-        """
-        Load a User from the database using the 'sub' claim.
-        """
+        """Load a User from the database using the 'sub' claim."""
         user_id = jwt_data.get('sub')
         if not user_id:
-            jwt_logger.error("Missing 'sub' claim in JWT")
-            return None
+            app.logger.error("Missing 'sub' claim in JWT")
+            raise APIError(
+                message="Invalid token claims",
+                code="TOKEN_INVALID",
+                status_code=422
+            )
 
-        jwt_logger.debug(f"Looking up user ID: {user_id}")
+        app.logger.debug(f"Looking up user ID: {user_id}")
         user = User.query.get(user_id)
         if not user:
-            jwt_logger.error(f"User not found: ID {user_id}")
-            return None
+            app.logger.error(f"User not found: ID {user_id}")
+            raise APIError(
+                message="User not found",
+                code="USER_NOT_FOUND",
+                status_code=404
+            )
         if user.account_status != 'Active':
-            jwt_logger.warning(f"Inactive account: ID {user_id}")
-            return None
+            app.logger.warning(f"Inactive account: ID {user_id}")
+            raise APIError(
+                message="Account is not active",
+                code="ACCOUNT_INACTIVE",
+                status_code=403
+            )
 
         return user
 
     @jwt.invalid_token_loader
     def invalid_token_callback(reason):
         """Handle malformed or tampered tokens."""
-        jwt_logger.error(f"Invalid token: {reason} | Raw: {request.headers.get('Authorization','')}")
-        return jsonify({
-            "detail": "Token validation failed",
-            "category": "authentication",
-            "code": "token_invalid"
-        }), 422
+        app.logger.error(f"Invalid token: {reason} | Raw: {request.headers.get('Authorization', '')}")
+        raise APIError(
+            message="Token validation failed",
+            code="TOKEN_INVALID",
+            status_code=422
+        )
 
     @jwt.unauthorized_loader
     def missing_token_callback(reason):
         """Handle requests with no token present."""
-        jwt_logger.warning(f"Authorization missing: {reason}")
-        return jsonify({
-            "detail": "Authorization required",
-            "category": "authentication",
-            "code": "authorization_missing"
-        }), 401
+        app.logger.warning(f"Authorization missing: {reason}")
+        raise APIError(
+            message="Authorization required",
+            code="AUTHORIZATION_MISSING",
+            status_code=401
+        )
 
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
         """Handle expired tokens."""
-        jwt_logger.info(f"Expired token used: {jwt_payload}")
-        return jsonify({
-            "detail": "Token has expired",
-            "category": "authentication",
-            "code": "token_expired"
-        }), 401
+        app.logger.info(f"Expired token used: {jwt_payload}")
+        raise APIError(
+            message="Token has expired",
+            code="TOKEN_EXPIRED",
+            status_code=401
+        )
 
     @jwt.revoked_token_loader
     def revoked_token_callback(jwt_header, jwt_payload):
         """Handle revoked tokens."""
-        jwt_logger.warning(f"Revoked token attempt: {jwt_payload}")
-        return jsonify({
-            "detail": "Token has been revoked",
-            "category": "authentication",
-            "code": "token_revoked"
-        }), 401
+        app.logger.warning(f"Revoked token attempt: {jwt_payload}")
+        raise APIError(
+            message="Token has been revoked",
+            code="TOKEN_REVOKED",
+            status_code=401
+        )

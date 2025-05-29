@@ -1,3 +1,5 @@
+import decimal
+
 from sqlalchemy import func
 
 from ..models import Item, ItemStatus, ItemCategory, ItemCondition, User
@@ -7,8 +9,8 @@ from ..models.user import UserInstitution
 class ItemService:
     @staticmethod
     def create_item(user_id, item_data):
-        category_enum = ItemCategory(item_data["category"])  # int -> enum
-        condition_enum = ItemCondition(item_data["condition"])  # str -> enum
+        category_enum = ItemCategory(item_data["category"])  #
+        condition_enum = ItemCondition(item_data["condition"])
 
         new_item = Item(
             seller_id=user_id,
@@ -35,25 +37,23 @@ class ItemService:
     def get_filtered_items(filters):
         query = Item.query.join(User)
 
-        # Category filter (convert string to enum value)
-        if 'category' in filters:
-            category = ItemCategory[filters['category'].upper()].value
-            query = query.filter(Item.category == category)
+        if filters.get('category'):
+            query = query.filter(Item.category == ItemCategory[filters['category']])
 
-        # School filter (convert string to enum value)
-        if 'school' in filters:
-            school = UserInstitution(filters['school']).value
-            query = query.filter(User.institution == school)
+        if filters.get('school'):
+            query = query.filter(User.institution == filters['school'])
 
-        # Price range filter
-        if 'min_price' in filters:
-            query = query.filter(Item.price >= float(filters['min_price']))
-        if 'max_price' in filters:
-            query = query.filter(Item.price <= float(filters['max_price']))
+        if filters.get('min_price'):
+            min_price = float(filters['min_price'])
+            query = query.filter(Item.price >= decimal.Decimal(min_price))
+
+        if filters.get('max_price'):
+            max_price = float(filters['max_price'])
+            query = query.filter(Item.price <= decimal.Decimal(max_price))
 
         return query.paginate(
-            page=int(filters.get('page', 1)),
-            per_page=int(filters.get('per_page', 20)),
+            page=filters.get('page', 1),
+            per_page=filters.get('per_page', 20),
             error_out=False
         )
 
@@ -91,6 +91,7 @@ class ItemService:
             }
         }
 
+    @staticmethod
     def update_item(item_data):
         # Get item by ID from the data
         item = Item.query.get_or_404(item_data["item_id"])  # FIXED

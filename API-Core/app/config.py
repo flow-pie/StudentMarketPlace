@@ -2,10 +2,12 @@
 import os
 
 class Config:
+    # enviroment setup
+    ENV = "development"
     # File Upload Configuration
     UPLOAD_FOLDER = os.path.abspath('uploads')
     MEDIA_URL = '/media/'
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'jfif', 'gif'}
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
     ALLOWED_IMAGE_DOMAINS = {
         'images.unsplash.com',

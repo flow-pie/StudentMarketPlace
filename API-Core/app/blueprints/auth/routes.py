@@ -1,119 +1,212 @@
-import email
+from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
+
+import limiter
+from flask import Blueprint, request, current_app
+from flask_bcrypt import generate_password_hash
+from flask_jwt_extended import (
+    create_access_token,
+    jwt_required,
+    get_jwt_identity,
+    get_jwt
+)
+from flask_limiter.util import get_remote_address
 from sqlalchemy.exc import IntegrityError
-from flask import jsonify
-from flask import Blueprint, request, jsonify
 from werkzeug.routing import ValidationError
 
-from ... import TokenBlockList
-from ...models import user
-from ...schemas.auth import RegistrationSchema
-from ...models.user import User, AccountStatus
+from ...errors import APIError
 from ...extensions import db
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
-from datetime import timedelta, timezone, datetime
-from ...schemas.auth import LoginSchema
+from ...models.user import TokenBlockList, User, UserInstitution
+from ...models.user import AccountStatus
+from ...schemas.auth import LoginSchema, RegistrationSchema
 from ...services.auth import AuthService
+from flask_limiter import Limiter
 
 auth_bp = Blueprint('auth', __name__)
 
-
+limiter = Limiter(key_func=get_remote_address)
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit("5 per minute")
 def login():
-    schema = LoginSchema()
     try:
+        schema = LoginSchema()
         data = schema.load(request.json)
-    except ValidationError as err:
-        return jsonify({"error": err.messages}), 400
+        user = User.query.filter_by(email=data['email']).first()
 
-    user = User.query.filter_by(email=data['email']).first()
+        if not user:
+            raise APIError(
+                message="Email not registered",
+                code="EMAIL_NOT_FOUND",
+                status_code=HTTPStatus.UNAUTHORIZED.value
+            )
 
-    if not user or not user.check_password(data['password']):
-        return jsonify({"error": "Invalid credentials"}), 401
+        if not user.check_password(data['password']):
+            if user:
+                user.record_failed_login()
+            raise APIError(
+                message="Incorrect password",
+                code="INCORRECT_PASSWORD",
+                status_code=HTTPStatus.UNAUTHORIZED.value
+            )
 
-    if user.account_status != AccountStatus.ACTIVE:
-        return jsonify({"error": "Account not active"}), 403
+        if user.account_status == AccountStatus.BANNED:
+            raise APIError(
+                message="Account banned",
+                code="ACCOUNT_BANNED",
+                status_code=HTTPStatus.FORBIDDEN.value
+            )
 
-    if user.account_status == AccountStatus.BANNED:
-        return jsonify({"error": "Your account has been banned."}), 403
+        if user.account_status != AccountStatus.ACTIVE:
+            raise APIError(
+                message="Account not active",
+                code="ACCOUNT_INACTIVE",
+                status_code=HTTPStatus.FORBIDDEN.value
+            )
 
-    # Update last login
-    user.last_login = datetime.now(timezone.utc)
-    db.session.commit()
+        # Update last login
+        user.last_login = datetime.now(timezone.utc)
+        db.session.commit()
 
-    # unpacking tokens
-    access_token, refresh_token=AuthService.generate_token(user)
-    return jsonify(
-        {
+        access_token, refresh_token = AuthService.generate_token(user)
+        return {
             "message": "Login successful",
-            "tokens":{
-                "access_token" : access_token,
-                "refresh_token" : refresh_token
+            "tokens": {
+                "access_token": access_token,
+                "refresh_token": refresh_token
             },
-            "user": {
-                "id": user.user_id,
-                "email": user.email,
-                'name': user.get_full_name()
-            }
-        }
-    ), 200
+            "user": user.to_dict()
+        }, HTTPStatus.OK
 
+    except ValidationError as err:
+        if "Account locked" in str(err):
+            raise APIError(
+                message=str(err),
+                code="ACCOUNT_LOCKED",
+                status_code=HTTPStatus.TOO_MANY_REQUESTS
+            )
+        else:
+            raise APIError(
+                message=str(err),
+                code="VALIDATION_ERROR",
+                status_code=HTTPStatus.BAD_REQUEST
+            )
+    except Exception as err:
+        db.session.rollback()
+        current_app.logger.error(f"Login error: {str(err)}", exc_info=True)
+        if user.account_status == AccountStatus.BANNED:
+            raise APIError(
+                message="Account banned",
+                code="ACCOUNT_BANNED",
+                status_code=HTTPStatus.FORBIDDEN.value
+            )
+        if user.account_status != AccountStatus.ACTIVE:
+            raise APIError(
+                message="Account not active",
+                code="ACCOUNT_INACTIVE",
+                status_code=HTTPStatus.FORBIDDEN.value
+            )
+        if "Account locked" in str(err):
+            raise APIError(
+                message=str(err),
+                code="ACCOUNT_LOCKED",
+                status_code=HTTPStatus.TOO_MANY_REQUESTS
+            )
+        else:
+            raise APIError(
+                message="Authentication failed",
+                code="AUTH_FAILURE",
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
-# app/blueprints/auth/routes.py
 @auth_bp.route('/register', methods=['POST'])
+@limiter.limit("5 per minute")
 def register():
     try:
-        data = request.get_json()
+        schema = RegistrationSchema()
+        data = schema.load(request.json)
 
-        # Validate required fields
-        required = ['email', 'password', 'first_name', 'last_name']
-        if not all(field in data for field in required):
-            return jsonify({"error": "Missing required fields"}), 400
-
-        # Create user
         user = User(
-            email=data['email'],
+            email=data['email'].lower(),
             password=data['password'],
             first_name=data['first_name'],
-            last_name=data['last_name']
+            last_name=data['last_name'],
+            institution=UserInstitution(data['institution'].capitalize()),
+            student_id=data['student_id']
         )
 
         db.session.add(user)
         db.session.commit()
 
-        return jsonify({
+        return {
             "message": "Registration successful",
             "user": {
                 "id": user.user_id,
                 "email": user.email
             }
-        }), 201
+        }, HTTPStatus.CREATED.value
 
-    except IntegrityError as e:
+    except ValidationError as err:
+        error_messages = err.normalized_messages()
+        raise APIError(
+            message=error_messages,
+            code="VALIDATION_ERROR",
+            status_code=HTTPStatus.BAD_REQUEST.value
+        )
+    except IntegrityError as err:
         db.session.rollback()
-        return jsonify({"error": "Email already registered"}), 400
-
-
-    except Exception as e:
-        # Print full traceback to terminal or logs
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': 'Internal server error'}), 500
+        raise APIError(
+            message={"email/student id": ["Email or student id already registered"]},
+            code="VALIDATION_ERROR",
+            status_code=HTTPStatus.BAD_REQUEST.value
+        )
+    except Exception as err:
+        db.session.rollback()
+        current_app.logger.error(f"Registration error: {str(err)}", exc_info=True)
+        if 'registered' in str(err).lower():
+            raise APIError(
+                message={"email": ["Email already registered"]},
+                code="VALIDATION_ERROR",
+                status_code=HTTPStatus.BAD_REQUEST.value
+            )
+        else:
+            raise APIError(
+                message="Registration failed",
+                code="REGISTRATION_FAILED",
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
+            )
 
 @auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh_access_token():
-    identity = get_jwt_identity()
-    new_access_token = create_access_token(identity=identity)
-    return jsonify({"access_token": new_access_token}), 200
+    try:
+        identity = get_jwt_identity()
+        new_access_token = create_access_token(identity=identity)
+        return {"access_token": new_access_token}, HTTPStatus.OK.value
+    except Exception as err:
+        raise APIError(
+            message="Token refresh failed",
+            code="REFRESH_FAILED",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
+        )
+
 
 @auth_bp.route('/logout', methods=['POST'])
 @jwt_required(verify_type=False)
 def logout():
-    jwt = get_jwt()
-    jti = jwt['jti']
-    token_type = jwt['type']
+    try:
+        jwt = get_jwt()
+        jti = jwt['jti']
+        token_type = jwt['type']
 
-    token_block =TokenBlockList(jti=jti)
-    token_block.save()
+        token_block = TokenBlockList(jti=jti)
+        token_block.save()
 
-    return jsonify({"message": f"{token_type} token revoked successfully"}), 200
+        return {
+            "message": f"{token_type} token revoked successfully"
+        }, HTTPStatus.OK.value
+    except Exception as err:
+        raise APIError(
+            message="Logout failed",
+            code="LOGOUT_FAILED",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
+        )

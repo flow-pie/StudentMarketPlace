@@ -3,12 +3,12 @@ from enum import Enum
 from ..extensions import db
 
 
-class ItemCategory(Enum):
-    ELECTRONICS = 1
-    BOOKS = 2
-    CLOTHING = 3
-    OTHER = 4
-
+class ItemCategory(str, Enum):
+    ELECTRONICS = "ELECTRONICS"
+    BOOKS = "BOOKS"
+    CLOTHING = "CLOTHING"
+    FURNITURE = "FURNITURE"
+    OTHER = "OTHER"
 
 class ItemCondition(str, Enum):
     NEW = "New"
