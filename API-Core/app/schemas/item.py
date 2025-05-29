@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate, ValidationError
+from marshmallow import Schema, fields, validate, ValidationError, validates
 from marshmallow_enum import EnumField
 from enum import Enum
 import bleach
@@ -39,31 +39,6 @@ class SecureSchema(Schema):
                     existing_validators = list(field_obj.validate)
             field_obj.validate = existing_validators + [sanitize_html, validate_safe_text]
 
-# ---- Item Schemas ----
-class ItemCreateSchema(SecureSchema):
-    title = fields.Str(
-        required=True,
-        validate=[
-            validate.Length(min=2, max=100),
-            validate.Regexp(r'^[\w\s\-.,!?@\'"]+$')
-        ]
-    )
-    description = fields.Str(
-        required=True,
-        validate=validate.Length(max=2000)
-    )
-    price = fields.Decimal(
-        required=True,
-        places=2,
-        validate=[
-            validate.Range(min=0.01, max=99999.99),
-            validate.Regexp(r'^\d{1,5}(\.\d{1,2})?$')
-        ]
-    )
-    category = EnumField(ItemCategory, by_value=True, required=False)
-    condition = EnumField(ItemCondition, by_value=True, required=False)
-
-
 class ItemUpdateSchema(SecureSchema):
     title = fields.Str(
         required=False,
@@ -77,12 +52,9 @@ class ItemUpdateSchema(SecureSchema):
         validate=validate.Length(max=2000)
     )
     price = fields.Decimal(
-        required=False,
+        required=True,
         places=2,
-        validate=[
-            validate.Range(min=0.01, max=99999.99),
-            validate.Regexp(r'^\d{1,5}(\.\d{1,2})?$')
-        ]
+        validate=validate.Range(min=0.01, max=99999.99)
     )
     category = EnumField(ItemCategory, by_value=True, required=False)
     condition = EnumField(ItemCondition, by_value=True, required=False)
@@ -93,17 +65,6 @@ class ItemSchema(SecureSchema):
     item_id = fields.Int(dump_only=True)
     title = fields.Str()
     description = fields.Str()
-    price = fields.Decimal(as_string=True)
-    category = fields.Function(lambda obj: (
-        obj.category.name if isinstance(obj.category, ItemCategory)
-        else ItemCategory(int(obj.category)).name if obj.category
-        else None
-    ))
-    condition = fields.Function(lambda obj: (
-        obj.condition.value if isinstance(obj.condition, ItemCondition)
-        else obj.condition if obj.condition
-        else None
-    ))
     status = fields.Function(lambda obj: (
         obj.status.value if isinstance(obj.status, ItemStatus)
         else obj.status
@@ -111,7 +72,16 @@ class ItemSchema(SecureSchema):
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(allow_none=True, dump_only=True)
     seller_id = fields.Int(dump_only=True)
+    price = fields.Decimal(places=2)
+    category = fields.Str(attribute="category.value")
+    condition = fields.Str(attribute="condition.value")
 
+    @validates('price')
+    def validate_price(self, value):
+        if value <= 0:
+            raise ValidationError("Price must be greater than zero")
+        if abs(value.as_tuple().exponent) > 2:
+            raise ValidationError("Price must have maximum 2 decimal places")
 
 class ItemFilterSchema(SecureSchema):
     category = EnumField(
@@ -166,3 +136,24 @@ class PaginatedItemSchema(SecureSchema):
         values=fields.Integer(),
         metadata={"description": "Count of items per category"}
     )
+
+
+class ItemCreateSchema(SecureSchema):
+    title = fields.Str(
+        required=True,
+        validate=[
+            validate.Length(min=2, max=100),
+            validate.Regexp(r'^[\w\s\-.,!?@\'"]+$')
+        ]
+    )
+    description = fields.Str(
+        required=True,
+        validate=validate.Length(max=2000)
+    )
+    price = fields.Decimal(
+        required=True,
+        places=2,
+        validate=validate.Range(min=0.01, max=99999.99)
+    )
+    category = EnumField(ItemCategory, by_value=True, required=True)
+    condition = EnumField(ItemCondition, by_value=True, required=True)

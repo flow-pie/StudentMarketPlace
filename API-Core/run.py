@@ -11,6 +11,7 @@ from logging.handlers import RotatingFileHandler
 from colorama import Fore, Style, init
 from sqlalchemy.exc import OperationalError
 import pymysql
+
 from app import create_app
 from app.extensions import db
 from app.config import Config

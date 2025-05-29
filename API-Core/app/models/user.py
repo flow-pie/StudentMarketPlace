@@ -39,6 +39,9 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     email_verified = db.Column(db.Boolean, default=False, nullable=False)
     phone_number = db.Column(db.String(20))
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    last_failed_login = db.Column(db.DateTime)
+    account_locked = db.Column(db.Boolean, default=False)
 
     # Relationships
     items = db.relationship('Item', back_populates='seller')
@@ -68,10 +71,28 @@ class User(db.Model):
 
     #takes keyword arguments
     def __init__(self, **kwargs):
-        password = kwargs.pop('password', None)  # remove 'password' if exists
+        password = kwargs.pop('password', None)
+        self.failed_login_attempts = self.failed_login_attempts or 0
         super(User, self).__init__(**kwargs)
         if password:
             self.set_password(password)
+
+    def to_dict(self):
+        return {
+            'id': self.user_id,
+            'email': self.email,
+            'name': self.get_full_name(),
+            'role': "Admin" if self.is_admin else "User",
+            'status': self.account_status.value
+        }
+
+    def record_failed_login(self):
+        """Record a failed login attempt"""
+        if self.failed_login_attempts is None:
+            self.failed_login_attempts = 0
+        self.failed_login_attempts += 1
+        self.last_failed_login = datetime.utcnow()
+        db.session.commit()
 
     @hybrid_property
     def password(self):

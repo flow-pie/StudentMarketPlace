@@ -1,6 +1,7 @@
 import logging
+from http import HTTPStatus
 from pathlib import Path
-from flask import jsonify
+from flask import jsonify, current_app
 from werkzeug.exceptions import HTTPException
 from logging.handlers import RotatingFileHandler
 
@@ -90,18 +91,24 @@ def configure_logging(app):
 
 
 def register_error_handlers(app):
-    """Register error handlers for the application"""
-
     @app.errorhandler(APIError)
     def handle_api_error(error):
-        """Convert APIError instances to proper JSON responses"""
-        app.logger.error(f"API Error [{error.code}]: {error.message}")
         response = jsonify({
-            'error': error.code,
-            'message': error.message,
-            'status': error.status_code
+            "error": error.code,
+            "message": error.message,
+            "status": error.status_code
         })
         response.status_code = error.status_code
+        return response
+
+    @app.errorhandler(ValidationError)
+    def handle_validation_error(error):
+        response = jsonify({
+            "error": "VALIDATION_ERROR",
+            "message": error.normalized_messages(),
+            "status": HTTPStatus.BAD_REQUEST.value
+        })
+        response.status_code = HTTPStatus.BAD_REQUEST.value
         return response
 
     @app.errorhandler(HTTPException)

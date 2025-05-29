@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import  current_user, jwt_required
 from sqlalchemy.exc import SQLAlchemyError
 
-from ... import APIError
+from ...errors import APIError
 from ...extensions import db
 from ...models import Item
 from ...schemas.item import ItemCreateSchema, ItemSchema
@@ -57,14 +57,14 @@ def send_message():
             code="DATABASE_ERROR",
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
         )
-
-    except Exception as err:
-        db.session.rollback()
-        raise APIError(
-            message="Message sending failed",
-            code="MESSAGE_FAILURE",
-            status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
-        )
+    #
+    # except Exception as err:
+    #     db.session.rollback()
+    #     raise APIError(
+    #         message="Message sending failed",
+    #         code="MESSAGE_FAILURE",
+    #         status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
+    #     )
 
 @msg_bp.route('/<int:user_id>', methods=['GET'])
 @jwt_required()

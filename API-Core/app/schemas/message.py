@@ -10,7 +10,6 @@ class SecureMessageSchema(Schema):
             # Initialize validate list if it doesn't exist
             if not hasattr(field_obj, 'validate') or field_obj.validate is None:
                 field_obj.validate = []
-            # Add our security validators
             field_obj.validate.extend([
                 self._sanitize_html,
                 self._validate_safe_chars
@@ -34,8 +33,7 @@ class MessageCreateSchema(SecureMessageSchema):
     item_id = fields.Int(
         required=True,
         validate=[
-            validate.Range(min=1),
-            validate.Regexp(r'^\d+$', error="Invalid item ID format")
+            validate.Range(min=1)
         ]
     )
     content = fields.Str(

@@ -1,12 +1,13 @@
+from http import HTTPStatus
+
 from dotenv import load_dotenv
 from flask import Flask, jsonify
 import os
 from datetime import timedelta
 import logging
-from werkzeug.exceptions import HTTPException
-
+from werkzeug.exceptions import HTTPException, NotFound
 from .config import Config
-from .errors import APIError, configure_logging, register_error_handlers
+from .errors import APIError, configure_logging, register_error_handlers, ValidationError
 from .extensions import db
 from .models.user import TokenBlockList
 
@@ -114,43 +115,53 @@ def configure_jwt_callbacks(jwt):
 
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
-        raise APIError("Token expired", "TOKEN_EXPIRED", 401)
+        return jsonify({
+            "message": "Token has expired",
+            "code": "TOKEN_EXPIRED",
+            "status_code": HTTPStatus.UNAUTHORIZED.value
+        }), 401
 
     @jwt.invalid_token_loader
     def invalid_token_callback(reason):
-        raise APIError(f"Invalid token: {reason}", "TOKEN_INVALID", 422)
+        return jsonify(
+            {"message": "Invalid token", "code": "TOKEN_INVALID", "status_code": HTTPStatus.UNAUTHORIZED}), 401
 
     @jwt.unauthorized_loader
     def unauthorized_callback(error):
-        raise APIError("Authorization required", "UNAUTHORIZED", 401)
+        return jsonify(
+            {"message": "Authorization required", "code": "UNAUTHORIZED", "status_code": HTTPStatus.UNAUTHORIZED}), 401
 
     @jwt.token_in_blocklist_loader
     def token_in_blocklist_callback(jwt_header, jwt_payload):
         jti = jwt_payload['jti']
         token = db.session.query(TokenBlockList).filter_by(jti=jti).first()
         if token:
-            raise APIError("Token revoked", "TOKEN_REVOKED", 401)
+            return jsonify({"message": "Token revoked", "code": "TOKEN_REVOKED", "status_code": 401})
         return False
 
 
 def register_blueprints(app):
     """Register blueprints with conflict checking"""
-    from .blueprints import (
-        auth_bp, items_bp, items_crud_bp,
-        images_crud_bp, msg_bp, admin_bp,
-        admin_listings_bp, report_bp, admin_stat_bp
-    )
+    from .blueprints.auth.routes import auth_bp
+    from .blueprints.items.routes import items_crud_bp
+    from .blueprints.routes import items_bp
+    from .blueprints.item_images.images import images_crud_bp
+    from .blueprints.admin.listing import admin_listings_bp
+    from .blueprints.admin.view import report_bp
+    from .blueprints.messages.routes import msg_bp
+    from .blueprints.admin.users import admin_bp
+    from .blueprints.admin.stats import admin_stat_bp
 
     blueprints = [
         (auth_bp, '/api/auth'),
-        (items_bp, '/api/items'),
+        (items_bp, '/api/admin'),
         (items_crud_bp, '/api/items'),
-        (images_crud_bp, '/api/images'),
+        (images_crud_bp, '/api/items'),
         (msg_bp, '/api/messages'),
-        (admin_bp, '/api/admin/users'),
-        (admin_listings_bp, '/api/admin/listings'),
-        (report_bp, '/api/admin/reports'),
-        (admin_stat_bp, '/api/admin/stats')
+        (admin_bp, '/api/admin'),
+        (admin_listings_bp, '/api/admin'),
+        (report_bp, '/api/admin'),
+        (admin_stat_bp, '/api/admin')
     ]
 
     for blueprint, url_prefix in blueprints:
@@ -168,6 +179,31 @@ def register_blueprints(app):
 def register_error_handlers(app):
     """Consolidated error handling"""
 
+    @app.errorhandler(Exception)
+    def handle_all_errors(e):
+        # Convert exceptions to JSON
+        if isinstance(e, APIError):
+            response = jsonify(e.to_dict())
+            response.status_code = e.status_code
+            return response
+
+        if isinstance(e, HTTPException):
+            response = jsonify({
+                "error": e.name.replace(" ", "_").upper(),
+                "message": e.description,
+                "status": e.code
+            })
+            response.status_code = e.code
+            return response
+
+        # Fallback for unexpected errors
+        app.logger.error(f"Unhandled exception: {str(e)}")
+        return jsonify({
+            "error": "SERVER_ERROR",
+            "message": "Internal server error",
+            "status": 500
+        }), 500
+
     @app.errorhandler(APIError)
     def handle_api_error(error):
         app.logger.error(f"API Error [{error.code}]: {error.message}")
@@ -181,9 +217,29 @@ def register_error_handlers(app):
 
     @app.errorhandler(HTTPException)
     def handle_http_error(e):
+        if isinstance(e, NotFound):
+            # Return JSON response for 404 errors
+            response = jsonify({
+                "error": "NOT_FOUND",
+                "message": "The requested resource was not found",
+                "status": e.code
+            })
+            response.status_code = e.code
+            return response
         raise APIError(e.description, e.name.replace(' ', '_').upper(), e.code)
 
     @app.errorhandler(Exception)
-    def handle_unexpected_error(e):
+    def handle_unexpected_error(err):
         logger.critical("Unexpected error", exc_info=True)
-        raise APIError("Internal server error", "SERVER_ERROR", 500)
+
+        # Check if it's a validation error first
+        if isinstance(err, ValidationError):
+            return jsonify({
+                "error": "Validation Error",
+                "messages": err.messages
+            }), 400
+
+        return jsonify({
+            "error": "Internal Server Error",
+            "message": "An unexpected error occurred"
+        }), 500

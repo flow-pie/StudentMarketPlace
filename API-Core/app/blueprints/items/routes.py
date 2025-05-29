@@ -1,9 +1,7 @@
 from http import HTTPStatus
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import  current_user, jwt_required
 from sqlalchemy.exc import SQLAlchemyError, DatabaseError
-
-from ... import logger
 from ...errors import APIError, ValidationError
 from ...extensions import db
 from ...models import Item, User, ItemCategory
@@ -11,6 +9,9 @@ from ...schemas.item import ItemCreateSchema, ItemSchema, ItemFilterSchema, Pagi
 from ...models import Item
 from ...schemas.item import ItemCreateSchema, ItemSchema, ItemUpdateSchema
 from ...services.item import ItemService
+import logging
+
+logger = logging.getLogger(__name__)
 
 items_crud_bp = Blueprint('items_crud', __name__, url_prefix='/api/items')
 schema = ItemCreateSchema()
@@ -19,16 +20,12 @@ schema = ItemCreateSchema()
 @items_crud_bp.route('', methods=['POST'])
 @jwt_required()
 def create_item():
-    errors = schema.validate(request.json)
-    if errors:
-        raise APIError(
-            message="Validation failed: " + "; ".join(
-                f"{field}: {', '.join(messages)}"
-                for field, messages in errors.items()
-            ),
-            code = "VALIDATION_ERROR",
-            status_code = HTTPStatus.BAD_REQUEST.value
-        )
+    try:
+        validated_data = schema.load(request.json)
+    except ValidationError as err:
+        current_app.logger.error(f"Validation failed: {err.messages}")
+        return jsonify({"errors": err.messages}), 400
+
     try:
         item = ItemService.create_item(
             user_id=current_user.user_id,
@@ -44,19 +41,25 @@ def create_item():
             "message": "Listing created successfully"
         }), HTTPStatus.CREATED.value
 
-    except ValueError as e:
+    except ValueError as err:
          raise APIError(
              message= "Invalid input data provided",
              code = "INVALID_INPUT",
              status_code = HTTPStatus.BAD_REQUEST.value
          )
-    except SQLAlchemyError as e:
+    except SQLAlchemyError as err:
         db.session.rollback()
         raise APIError(
             message= "Database operation failed",
             code = "DATABASE_ERROR",
             status_code = HTTPStatus.INTERNAL_SERVER_ERROR.value
         )
+    except Exception as err:
+        logger.error(f"Unexpected error: {str(err)}")
+        return jsonify({
+            "error": "SERVER_ERROR",
+            "message": "An unexpected error occurred"
+        }), 500
 
 
 #get all items
@@ -77,7 +80,7 @@ def get_item_by_id(item_id):
     item = Item.query.get(item_id)
 
     if not item:
-        app.logger.error(f"Item not found - ID: {item_id}")
+        logger.error(f"Item not found - ID: {item_id}")
         raise APIError(
             message="Item not found",
             code="ITEM_NOT_FOUND",
@@ -162,15 +165,22 @@ def get_page_items():
 @jwt_required()
 def delete_item(item_id):
     try:
+        item = Item.query.get(item_id)
+        if item.seller_id != current_user.user_id:
+            raise APIError("Unauthorized", "PERMISSION_DENIED", HTTPStatus.FORBIDDEN.value)
+
         ItemService.delete_item(item_id)
         return jsonify({"success": True, "message": f"Item {item_id} deleted successfully."}), HTTPStatus.NO_CONTENT
-    except ValueError as e:
+    except ValueError as err:
         raise APIError(
             message="Item not found",
             code="ITEM_NOT_FOUND",
             status_code=HTTPStatus.NOT_FOUND.value
         )
-    except Exception as e:
+    except Exception as err:
+        if item.seller_id != current_user.user_id:
+            raise APIError("Unauthorized", "PERMISSION_DENIED", HTTPStatus.FORBIDDEN.value)
+
         raise APIError(
             message="Failed to delete item",
             code="SERVER_ERROR",

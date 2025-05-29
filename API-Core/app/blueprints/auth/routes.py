@@ -1,47 +1,62 @@
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
-from flask import Blueprint, request
+
+import limiter
+from flask import Blueprint, request, current_app
+from flask_bcrypt import generate_password_hash
 from flask_jwt_extended import (
     create_access_token,
     jwt_required,
     get_jwt_identity,
     get_jwt
 )
+from flask_limiter.util import get_remote_address
 from sqlalchemy.exc import IntegrityError
 from werkzeug.routing import ValidationError
 
 from ...errors import APIError
 from ...extensions import db
-from ...models.user import TokenBlockList, User
+from ...models.user import TokenBlockList, User, UserInstitution
 from ...models.user import AccountStatus
 from ...schemas.auth import LoginSchema, RegistrationSchema
 from ...services.auth import AuthService
+from flask_limiter import Limiter
 
 auth_bp = Blueprint('auth', __name__)
 
-
+limiter = Limiter(key_func=get_remote_address)
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit("5 per minute")
 def login():
     try:
         schema = LoginSchema()
         data = schema.load(request.json)
-
         user = User.query.filter_by(email=data['email']).first()
 
-        if not user or not user.check_password(data['password']):
+        if not user:
             raise APIError(
-                message="Invalid credentials",
-                code="INVALID_CREDENTIALS",
+                message="Email not registered",
+                code="EMAIL_NOT_FOUND",
                 status_code=HTTPStatus.UNAUTHORIZED.value
             )
 
+        if not user.check_password(data['password']):
+            if user:
+                user.record_failed_login()
+            raise APIError(
+                message="Incorrect password",
+                code="INCORRECT_PASSWORD",
+                status_code=HTTPStatus.UNAUTHORIZED.value
+            )
+
+        if user.account_status == AccountStatus.BANNED:
+            raise APIError(
+                message="Account banned",
+                code="ACCOUNT_BANNED",
+                status_code=HTTPStatus.FORBIDDEN.value
+            )
+
         if user.account_status != AccountStatus.ACTIVE:
-            if user.account_status == AccountStatus.BANNED:
-                raise APIError(
-                    message="Your account has been banned",
-                    code="ACCOUNT_BANNED",
-                    status_code=HTTPStatus.FORBIDDEN.value
-                )
             raise APIError(
                 message="Account not active",
                 code="ACCOUNT_INACTIVE",
@@ -59,39 +74,64 @@ def login():
                 "access_token": access_token,
                 "refresh_token": refresh_token
             },
-            "user": {
-                "id": user.user_id,
-                "email": user.email,
-                'name': user.get_full_name()
-            }
-        }, HTTPStatus.OK.value
+            "user": user.to_dict()
+        }, HTTPStatus.OK
 
     except ValidationError as err:
-        raise APIError(
-            message="Invalid login data",
-            code="VALIDATION_ERROR",
-            status_code=HTTPStatus.BAD_REQUEST.value,
-        )
+        if "Account locked" in str(err):
+            raise APIError(
+                message=str(err),
+                code="ACCOUNT_LOCKED",
+                status_code=HTTPStatus.TOO_MANY_REQUESTS
+            )
+        else:
+            raise APIError(
+                message=str(err),
+                code="VALIDATION_ERROR",
+                status_code=HTTPStatus.BAD_REQUEST
+            )
     except Exception as err:
         db.session.rollback()
-        raise APIError(
-            message="Login failed",
-            code="LOGIN_FAILED",
-            status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
-        )
-
+        current_app.logger.error(f"Login error: {str(err)}", exc_info=True)
+        if user.account_status == AccountStatus.BANNED:
+            raise APIError(
+                message="Account banned",
+                code="ACCOUNT_BANNED",
+                status_code=HTTPStatus.FORBIDDEN.value
+            )
+        if user.account_status != AccountStatus.ACTIVE:
+            raise APIError(
+                message="Account not active",
+                code="ACCOUNT_INACTIVE",
+                status_code=HTTPStatus.FORBIDDEN.value
+            )
+        if "Account locked" in str(err):
+            raise APIError(
+                message=str(err),
+                code="ACCOUNT_LOCKED",
+                status_code=HTTPStatus.TOO_MANY_REQUESTS
+            )
+        else:
+            raise APIError(
+                message="Authentication failed",
+                code="AUTH_FAILURE",
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR
+            )
 
 @auth_bp.route('/register', methods=['POST'])
+@limiter.limit("5 per minute")
 def register():
     try:
         schema = RegistrationSchema()
         data = schema.load(request.json)
 
         user = User(
-            email=data['email'],
+            email=data['email'].lower(),
             password=data['password'],
             first_name=data['first_name'],
-            last_name=data['last_name']
+            last_name=data['last_name'],
+            institution=UserInstitution(data['institution'].capitalize()),
+            student_id=data['student_id']
         )
 
         db.session.add(user)
@@ -106,26 +146,34 @@ def register():
         }, HTTPStatus.CREATED.value
 
     except ValidationError as err:
+        error_messages = err.normalized_messages()
         raise APIError(
-            message="Invalid registration data",
+            message=error_messages,
             code="VALIDATION_ERROR",
-            status_code=HTTPStatus.BAD_REQUEST.value,
+            status_code=HTTPStatus.BAD_REQUEST.value
         )
-    except IntegrityError:
+    except IntegrityError as err:
         db.session.rollback()
         raise APIError(
-            message="Email already registered",
-            code="EMAIL_EXISTS",
+            message={"email/student id": ["Email or student id already registered"]},
+            code="VALIDATION_ERROR",
             status_code=HTTPStatus.BAD_REQUEST.value
         )
     except Exception as err:
         db.session.rollback()
-        raise APIError(
-            message="Registration failed",
-            code="REGISTRATION_FAILED",
-            status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
-        )
-
+        current_app.logger.error(f"Registration error: {str(err)}", exc_info=True)
+        if 'registered' in str(err).lower():
+            raise APIError(
+                message={"email": ["Email already registered"]},
+                code="VALIDATION_ERROR",
+                status_code=HTTPStatus.BAD_REQUEST.value
+            )
+        else:
+            raise APIError(
+                message="Registration failed",
+                code="REGISTRATION_FAILED",
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
+            )
 
 @auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)

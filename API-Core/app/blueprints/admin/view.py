@@ -33,12 +33,6 @@ def report_content():
             code="INVALID_INPUT",
             status_code=HTTPStatus.BAD_REQUEST.value
         )
-    except Exception as e:
-        raise APIError(
-            message="Failed to create report",
-            code="REPORT_CREATION_FAILED",
-            status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
-        )
 
 @report_bp.route('/reports', methods=['GET'])
 @admin_required
@@ -46,7 +40,7 @@ def get_reports():
     try:
         reports = get_all_reports()
         return report_schema.dump(reports, many=True), HTTPStatus.OK.value
-    except Exception as e:
+    except Exception as err:
         raise APIError(
             message="Failed to retrieve reports",
             code="REPORT_RETRIEVAL_FAILED",
