@@ -10,6 +10,7 @@ from flask_cors import CORS
 from flask_marshmallow import Marshmallow
 from marshmallow import ValidationError as MarshmallowValidationError
 from .errors import ValidationError, APIError
+from flask_smorest import Api
 
 # ——— Set up shared extensions ———
 db = SQLAlchemy()
@@ -17,7 +18,7 @@ migrate = Migrate()
 cors = CORS()
 jwt = JWTManager()
 ma = Marshmallow()
-
+api = Api()
 
 def handle_ma_validation_error(e):
     """Convert marshmallow validation errors to our APIError format"""

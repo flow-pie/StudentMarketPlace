@@ -1,6 +1,7 @@
 import decimal
 
-from sqlalchemy import func
+from flask_sqlalchemy.query import Query
+from sqlalchemy import func, or_
 
 from ..models import Item, ItemStatus, ItemCategory, ItemCondition, User
 from ..extensions import db
@@ -35,28 +36,63 @@ class ItemService:
 
     @staticmethod
     def get_filtered_items(filters):
-        query = Item.query.join(User)
+        """
+        Parameters:
+        - filters (dict): parsed filters from ItemFilterSchema, e.g.
+          {
+            category, school, min_price, max_price, keyword,
+            condition, status, page, per_page, sort_by, sort_order
+          }
+        Returns:
+        - Pagination object (items, total, page, per_page)
+        """
+        query: Query = db.session.query(Item)
 
+        # Apply category filter
         if filters.get('category'):
-            query = query.filter(Item.category == ItemCategory[filters['category']])
+            query = query.filter(Item.category == filters['category'])
 
         if filters.get('school'):
-            query = query.filter(User.institution == filters['school'])
+            query = query.join(Item.seller).filter(
+                Item.seller.has(institution=filters['school'])
+            )
 
         if filters.get('min_price'):
-            min_price = float(filters['min_price'])
-            query = query.filter(Item.price >= decimal.Decimal(min_price))
-
+            query = query.filter(Item.price >= filters['min_price'])
         if filters.get('max_price'):
-            max_price = float(filters['max_price'])
-            query = query.filter(Item.price <= decimal.Decimal(max_price))
+            query = query.filter(Item.price <= filters['max_price'])
 
-        return query.paginate(
-            page=filters.get('page', 1),
-            per_page=filters.get('per_page', 20),
-            error_out=False
-        )
+        if filters.get('condition'):
+            query = query.filter(Item.condition == filters['condition'])
+        if filters.get('status'):
+            query = query.filter(Item.status == filters['status'])
 
+        if filters.get('keyword'):
+            keyword = f"%{filters['keyword']}%"
+            query = query.filter(
+                or_(
+                    Item.title.ilike(keyword),
+                    Item.description.ilike(keyword)
+                )
+            )
+
+        sort_by = filters.get('sort_by', 'created_at')
+        sort_order = filters.get('sort_order', 'desc')
+
+        if sort_by in ['price', 'created_at'] and sort_order in ['asc', 'desc']:
+            column = getattr(Item, sort_by)
+            if sort_order == 'desc':
+                column = column.desc()
+            else:
+                column = column.asc()
+            query = query.order_by(column)
+
+        page = filters.get('page', 1)
+        per_page = filters.get('per_page', 20)
+
+        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        return paginated
     @staticmethod
     def get_paginated_items(page=1, per_page=20, category=None):
         query = Item.query

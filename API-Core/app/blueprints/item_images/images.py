@@ -1,22 +1,43 @@
 import os
 from http import HTTPStatus
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import request, jsonify, current_app
+from flask_smorest import Blueprint
 from flask_jwt_extended import jwt_required, current_user
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from ...errors import APIError
 from ...config import Config
 from ...models import Item, ItemImage
+from ...schemas.auth import MessageSchema
+from ...schemas.item import ImageResponseSchema, ImageSchema
 from ...services.item_images import ImageService
 from ...extensions import db
 
-images_crud_bp = Blueprint('item_images', __name__)
-
+images_crud_bp = Blueprint('Item Images', __name__, description="Upload/delete images for your items")
 
 @images_crud_bp.route('/<int:item_id>/images', methods=['POST'])
+@images_crud_bp.doc(
+    description="Upload an image file for a specific item. Only the item's seller can upload.",
+    tags=["Item Images"]
+)
+@images_crud_bp.arguments(ImageSchema, location="files")
+@images_crud_bp.response(201, ImageResponseSchema)
+@images_crud_bp.response(400, MessageSchema)
+@images_crud_bp.response(403, MessageSchema)
+@images_crud_bp.response(404, MessageSchema)
 @jwt_required()
-def upload_image(item_id):
+@images_crud_bp.doc(security=[{"BearerAuth": []}])
+def upload_image(data, item_id):
+    """
+    Upload an image file for the given item.
+
+    Path parameters:
+    - item_id (int): ID of the item to attach the image to.
+
+    Form-data:
+    - image (file): The image file to upload.
+    """
     item = Item.query.get(item_id)
     if not item:
         raise APIError(
@@ -32,7 +53,7 @@ def upload_image(item_id):
             status_code=403
         )
 
-    image_file = request.files.get("image")
+    image_file = data["image"]
     if not image_file:
         raise APIError(
             message="No image file provided",
@@ -77,8 +98,22 @@ def upload_image(item_id):
 
 
 @images_crud_bp.route('/images/<int:image_id>', methods=['DELETE'])
+@images_crud_bp.doc(
+    description="Delete an image by its ID. Only the item's seller can delete.",
+    tags=["Item Images"]
+)
+@images_crud_bp.response(200, MessageSchema)
+@images_crud_bp.response(403, MessageSchema)
+@images_crud_bp.response(404, MessageSchema)
 @jwt_required()
+@images_crud_bp.doc(security=[{"BearerAuth": []}])
 def delete_image(image_id):
+    """
+    Delete an image by its ID.
+
+    Path parameters:
+    - image_id (int): ID of the image to delete.
+    """
     try:
         image = ItemImage.query.get_or_404(image_id)
 

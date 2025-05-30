@@ -1,6 +1,6 @@
 from functools import wraps
 from flask_jwt_extended import verify_jwt_in_request, get_jwt
-from flask import jsonify
+from flask import jsonify, current_app
 from http import HTTPStatus
 
 from ..errors import APIError
@@ -36,6 +36,7 @@ def admin_required(fn):
         except APIError:
             raise
         except Exception as err:
+            current_app.logger.error(f"[ADMIN_DECORATOR]: {err}")
             raise APIError(
                 message="Invalid or expired token",
                 code="ADMIN_AUTH_REQUIRED",

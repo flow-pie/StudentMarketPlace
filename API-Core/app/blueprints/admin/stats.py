@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from flask import Blueprint
+from flask_smorest import Blueprint
 from http import HTTPStatus
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -7,11 +7,14 @@ from ...errors import APIError
 from ...decorators.auth import admin_required
 from ...models import User, Item, ItemStatus, Message
 from ...models.report import Report
+from ...schemas.item import ItemSchema
 
-admin_stat_bp = Blueprint('stats', __name__)
+admin_stat_bp = Blueprint('Dashboard statistics', __name__)
 
 @admin_stat_bp.route("/stats", methods=["GET"])
 @admin_required
+@admin_stat_bp.doc(security=[{"BearerAuth": []}])
+@admin_stat_bp.response(200, schema=None)
 def get_admin_stats():
     """Returns aggregated platform statistics for the admin dashboard."""
     try:
