@@ -8,7 +8,7 @@ import logging
 from werkzeug.exceptions import HTTPException, NotFound
 from .config import Config
 from .errors import APIError, configure_logging, register_error_handlers, ValidationError
-from .extensions import db
+from .extensions import db, api
 from .models.user import TokenBlockList
 
 # Configure logging before app creation
@@ -24,6 +24,25 @@ def create_app(config=None):
 
     # Configure application settings
     configure_app(app, config)
+
+    # Swagger Config
+    app.config['API_TITLE'] = 'Student Marketplace API documentation with endpoints '
+    app.config['API_DESCRIPTION'] = 'Marketplace API documentation with endpoints for items, users, auth, etc.'
+    app.config['API_VERSION'] = 'v1'
+    app.config['OPENAPI_VERSION'] = '3.0.3'
+    app.config['OPENAPI_URL_PREFIX'] = '/'
+    app.config['OPENAPI_SWAGGER_UI_PATH'] = '/'
+    app.config['OPENAPI_SWAGGER_UI_URL'] = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist/'
+
+    api.init_app(app)
+    api.spec.components.security_scheme(
+        "BearerAuth",
+        {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        },
+    )
 
     # Configure logging FIRST before any other operations
     configure_logging(app)
@@ -144,7 +163,7 @@ def register_blueprints(app):
     """Register blueprints with conflict checking"""
     from .blueprints.auth.routes import auth_bp
     from .blueprints.items.routes import items_crud_bp
-    from .blueprints.routes import items_bp
+    # from .blueprints.routes import items_bp
     from .blueprints.item_images.images import images_crud_bp
     from .blueprints.admin.listing import admin_listings_bp
     from .blueprints.admin.view import report_bp
@@ -154,7 +173,7 @@ def register_blueprints(app):
 
     blueprints = [
         (auth_bp, '/api/auth'),
-        (items_bp, '/api/admin'),
+        # (items_bp, '/api/admin'),
         (items_crud_bp, '/api/items'),
         (images_crud_bp, '/api/items'),
         (msg_bp, '/api/messages'),
@@ -166,7 +185,7 @@ def register_blueprints(app):
 
     for blueprint, url_prefix in blueprints:
         try:
-            app.register_blueprint(blueprint, url_prefix=url_prefix)
+            api.register_blueprint(blueprint, url_prefix=url_prefix)
         except ValueError as e:
             logging.getLogger(__name__).error(
                 f"Blueprint registration failed: {str(e)}"
@@ -174,10 +193,6 @@ def register_blueprints(app):
             raise
 
     logging.getLogger(__name__).info(f"Registered {len(blueprints)} blueprints")
-
-
-def register_error_handlers(app):
-    """Consolidated error handling"""
 
     @app.errorhandler(Exception)
     def handle_all_errors(e):

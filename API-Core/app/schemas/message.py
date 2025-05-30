@@ -45,13 +45,14 @@ class MessageCreateSchema(SecureMessageSchema):
         ]
     )
 
-class MessageSchema(SecureMessageSchema):
+
+class MessagingSchema(SecureMessageSchema):
     message_id = fields.Int(dump_only=True)
     conversation_id = fields.Int(dump_only=True)
     sender_id = fields.Int(dump_only=True)
     receiver_id = fields.Int(dump_only=True)
     content = fields.Str(dump_only=True)
-    sent_at = fields.DateTime(dump_only=True)
+    sent_at = fields.Str(dump_only=True)
 
     # Rate limiting metadata (for client-side handling)
     can_reply = fields.Bool(dump_only=True)

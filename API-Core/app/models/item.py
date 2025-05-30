@@ -1,3 +1,4 @@
+import enum
 from datetime import datetime, UTC
 from enum import Enum
 from ..extensions import db
@@ -16,6 +17,16 @@ class ItemCondition(str, Enum):
     GOOD = "Good"
     FAIR = "Fair"
     POOR = "Poor"
+
+
+class SortByEnum(enum.Enum):
+    PRICE = "price"
+    CREATED_AT = "created_at"
+
+
+class SortOrderEnum(enum.Enum):
+    ASC = "asc"
+    DESC = "desc"
 
 
 class ItemStatus(str, Enum):

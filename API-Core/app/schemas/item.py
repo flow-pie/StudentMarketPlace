@@ -1,3 +1,4 @@
+from flask_smorest.fields import Upload
 from marshmallow import Schema, fields, validate, ValidationError, validates
 from marshmallow_enum import EnumField
 from enum import Enum
@@ -52,7 +53,7 @@ class ItemUpdateSchema(SecureSchema):
         validate=validate.Length(max=2000)
     )
     price = fields.Decimal(
-        required=True,
+        required=False,
         places=2,
         validate=validate.Range(min=0.01, max=99999.99)
     )
@@ -65,12 +66,9 @@ class ItemSchema(SecureSchema):
     item_id = fields.Int(dump_only=True)
     title = fields.Str()
     description = fields.Str()
-    status = fields.Function(lambda obj: (
-        obj.status.value if isinstance(obj.status, ItemStatus)
-        else obj.status
-    ))
-    created_at = fields.DateTime(dump_only=True)
-    updated_at = fields.DateTime(allow_none=True, dump_only=True)
+    status = fields.Str()
+    created_at = fields.Str()
+    updated_at = fields.Str()
     seller_id = fields.Int(dump_only=True)
     price = fields.Decimal(places=2)
     category = fields.Str(attribute="category.value")
@@ -157,3 +155,78 @@ class ItemCreateSchema(SecureSchema):
     )
     category = EnumField(ItemCategory, by_value=True, required=True)
     condition = EnumField(ItemCondition, by_value=True, required=True)
+
+
+class ImageResponseSchema(Schema):
+    image_id = fields.Int()
+    item_id = fields.Int()
+    image_url = fields.Str()
+    is_primary = fields.Bool()
+
+
+class ImageSchema(Schema):
+    image = Upload(required=True)
+
+
+class ItemPaginationSchema(Schema):
+    category = fields.String(
+        required=False,
+        validate=validate.OneOf([c.value for c in ItemCategory]),
+    )
+    page = fields.Integer(
+        required=False,
+        validate=validate.Range(min=1),
+    )
+    per_page = fields.Integer(
+        required=False,
+        validate=validate.Range(min=1, max=100),
+    )
+
+
+class ItemQuerySchema(Schema):
+    category = fields.String(
+        required=False,
+        validate=validate.OneOf([c.value for c in ItemCategory]),
+        metadata={'enum': [c.value for c in ItemCategory]}
+    )
+
+    school = fields.String(
+        required=False,
+        validate=validate.OneOf([c.value for c in UserInstitution]),
+        metadata={'enum': [c.value for c in UserInstitution]}
+    )
+    min_price = fields.Float(required=False, validate=validate.Range(min=0))
+    max_price = fields.Float(required=False, validate=validate.Range(min=0))
+
+    condition = fields.String(
+        required=False,
+        validate=validate.OneOf([c.value for c in ItemCondition]),
+        metadata={'enum': [c.value for c in ItemCondition]}
+    )
+
+    status = fields.String(
+        required=False,
+        validate=validate.OneOf([s.value for s in ItemStatus]),
+        metadata={'enum': [s.value for s in ItemStatus]}
+    )
+
+    sort_by = fields.String(
+        required=False,
+        validate=validate.OneOf(['price', 'created_at']),
+        metadata={'enum': ['price', 'created_at']}
+    )
+
+    sort_order = fields.String(
+        required=False,
+        validate=validate.OneOf(['asc', 'desc']),
+        metadata={'enum': ['asc', 'desc']}
+    )
+
+    page = fields.Integer(
+        required=False,
+        validate=validate.Range(min=1)
+    )
+    per_page = fields.Integer(
+        required=False,
+        validate=validate.Range(min=1, max=100)
+    )

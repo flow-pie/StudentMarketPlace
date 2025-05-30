@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
 import limiter
-from flask import Blueprint, request, current_app
+from flask import request, current_app
+from flask_smorest import Blueprint, abort
 from flask_bcrypt import generate_password_hash
 from flask_jwt_extended import (
     create_access_token,
@@ -18,16 +19,28 @@ from ...errors import APIError
 from ...extensions import db
 from ...models.user import TokenBlockList, User, UserInstitution
 from ...models.user import AccountStatus
-from ...schemas.auth import LoginSchema, RegistrationSchema
+from ...schemas.auth import LoginSchema, RegistrationSchema, LoginResponseSchema, UserResponseSchema, TokenSchema, \
+    MessageSchema
 from ...services.auth import AuthService
 from flask_limiter import Limiter
 
-auth_bp = Blueprint('auth', __name__)
+auth_bp = Blueprint('Authentication', __name__,
+                    description="Authentication endpoints including login, register, refresh, and logout")
 
 limiter = Limiter(key_func=get_remote_address)
 @auth_bp.route('/login', methods=['POST'])
-@limiter.limit("5 per minute")
-def login():
+@limiter.limit("10 per minute")
+@auth_bp.arguments(LoginSchema)
+@auth_bp.response(HTTPStatus.OK, LoginResponseSchema,
+                  description="Successful login returns access and refresh tokens with user details")
+def login(data):
+    """
+    User login endpoint.
+
+    Accepts email and password, verifies credentials,
+    returns JWT tokens (access and refresh) if successful.
+    Rate limited to 10 requests per minute.
+    """
     try:
         schema = LoginSchema()
         data = schema.load(request.json)
@@ -119,8 +132,17 @@ def login():
             )
 
 @auth_bp.route('/register', methods=['POST'])
-@limiter.limit("5 per minute")
-def register():
+@limiter.limit("10 per minute")
+@auth_bp.arguments(RegistrationSchema)
+@auth_bp.response(HTTPStatus.CREATED, UserResponseSchema, description="Registers a new user and returns their details")
+def register(data):
+    """
+    User registration endpoint.
+
+    Accepts user details (email, password, name, institution, student ID),
+    creates a new user in the system, returns created user.
+    Rate limited to 10 requests per minute.
+    """
     try:
         schema = RegistrationSchema()
         data = schema.load(request.json)
@@ -137,13 +159,7 @@ def register():
         db.session.add(user)
         db.session.commit()
 
-        return {
-            "message": "Registration successful",
-            "user": {
-                "id": user.user_id,
-                "email": user.email
-            }
-        }, HTTPStatus.CREATED.value
+        return user, HTTPStatus.CREATED.value
 
     except ValidationError as err:
         error_messages = err.normalized_messages()
@@ -175,9 +191,28 @@ def register():
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
             )
 
+
 @auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
+@auth_bp.response(
+    HTTPStatus.OK,
+    TokenSchema,
+    description="Generates a new access token using a valid refresh token",
+    examples={
+        "application/json": {
+            "access_token": "newly_generated_access_token"
+        }
+    }
+)
+@auth_bp.doc(security=[{'bearerAuth': []}])
 def refresh_access_token():
+    """
+    Access token refresh endpoint.
+
+    Requires a valid refresh token in Authorization header.
+
+    (use postman to test this endpoint)
+    """
     try:
         identity = get_jwt_identity()
         new_access_token = create_access_token(identity=identity)
@@ -192,7 +227,27 @@ def refresh_access_token():
 
 @auth_bp.route('/logout', methods=['POST'])
 @jwt_required(verify_type=False)
+@auth_bp.response(
+    HTTPStatus.OK,
+    MessageSchema,
+    description="Revokes the current JWT token (access or refresh)",
+    examples={
+        "application/json": {
+            "message": "access token revoked successfully"
+        }
+    }
+)
+@auth_bp.doc(security=[{'bearerAuth': []}])
 def logout():
+    """
+    User logout endpoint.
+
+    Revokes the current JWT token.
+    Requires Authorization header.
+
+    (use postman to test this endpoint)
+
+    """
     try:
         jwt = get_jwt()
         jti = jwt['jti']

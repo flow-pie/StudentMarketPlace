@@ -131,3 +131,32 @@ class LoginSchema(SecureAuthSchema):
                             f"Account locked. Try again in {remaining} seconds",
                             "email"
                         )
+
+
+class TokenSchema(Schema):
+    access_token = fields.Str(required=True)
+    refresh_token = fields.Str(required=True)
+
+
+class UserResponseSchema(Schema):
+    id = fields.Integer(attribute="user_id", required=True)
+    email = fields.Email(required=True)
+    first_name = fields.Str(required=True)
+    last_name = fields.Str(required=True)
+    institution = fields.Str(required=True)
+    student_id = fields.Str(required=True)
+
+
+class LoginResponseSchema(Schema):
+    message = fields.Str(required=True)
+    tokens = fields.Nested(TokenSchema, required=True)
+    user = fields.Nested(UserResponseSchema, required=True)
+
+
+class MessageSchema(Schema):
+    message = fields.String()
+
+
+class UserBanSchema(Schema):
+    banned = fields.Boolean(required=True)
+    reason = fields.Str()

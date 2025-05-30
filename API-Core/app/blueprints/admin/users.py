@@ -1,5 +1,7 @@
-from flask import Blueprint, request
+from flask import request
 from http import HTTPStatus
+from flask_smorest import Blueprint
+
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -9,14 +11,19 @@ from ...extensions import db
 from ...models import User
 import logging
 
+from ...schemas.auth import UserBanSchema
+
 logger = logging.getLogger(__name__)
 
-admin_bp = Blueprint('admin', __name__)
-
+admin_bp = Blueprint('User Management', __name__)
 
 @admin_bp.route('/users', methods=['GET'])
 @admin_required
+@admin_bp.doc(security=[{"BearerAuth": []}])
+@admin_bp.response(200, schema=None)
+
 def list_users():
+    """Returns a list of all users. """
     try:
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
@@ -50,49 +57,37 @@ def list_users():
 
 @admin_bp.route('/users/<int:user_id>/ban', methods=['PATCH'])
 @admin_required
-def toggle_ban(user_id):
+@admin_bp.doc(security=[{"BearerAuth": []}])
+@admin_bp.arguments(UserBanSchema)
+@admin_bp.response(200, schema=None)
+def toggle_ban(data, user_id):
+    """Toggles whether a user is banned.
+
+    Parameters:
+    - user_id: int → the user’s unique ID in the database.
+    - data: dict → {'banned': bool, 'reason': str (if banning)}
+    """
     try:
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
-            raise APIError(
-                message="User not found",
-                code="USER_NOT_FOUND",
-                status_code=HTTPStatus.NOT_FOUND.value
-            )
+            raise APIError("User not found", code="USER_NOT_FOUND", status_code=HTTPStatus.NOT_FOUND)
 
-        data = request.get_json()
-        if not data or 'banned' not in data:
-            raise APIError(
-                message="Missing 'banned' status in request",
-                code="MISSING_STATUS",
-                status_code=HTTPStatus.BAD_REQUEST.value
-            )
-
-        if data.get('banned'):
+        if data['banned']:
             if not data.get('reason'):
-                raise APIError(
-                    message="Ban reason is required",
-                    code="MISSING_REASON",
-                    status_code=HTTPStatus.BAD_REQUEST.value
-                )
-            user.ban_user(reason=data.get('reason'))
+                raise APIError("Ban reason required", code="MISSING_REASON", status_code=HTTPStatus.BAD_REQUEST)
+            user.ban_user(reason=data['reason'])
         else:
             user.unban_user()
 
         db.session.commit()
-        return user.to_admin_dict(), HTTPStatus.OK.value
+        return user.to_admin_dict(), HTTPStatus.OK
 
     except ValueError as e:
         db.session.rollback()
-        raise APIError(
-            message=str(e),
-            code="INVALID_OPERATION",
-            status_code=HTTPStatus.BAD_REQUEST.value
-        )
+        raise APIError(str(e), code="INVALID_OPERATION", status_code=HTTPStatus.BAD_REQUEST)
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        raise APIError("Database error", code="DB_ERROR", status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     except Exception as e:
         db.session.rollback()
-        raise APIError(
-            message="Failed to update user status",
-            code="USER_UPDATE_FAILED",
-            status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
-        )
+        raise APIError("Unexpected error", code="USER_UPDATE_FAILED", status_code=HTTPStatus.INTERNAL_SERVER_ERROR)

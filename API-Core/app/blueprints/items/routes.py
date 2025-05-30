@@ -1,11 +1,13 @@
 from http import HTTPStatus
-from flask import Blueprint, jsonify, request, current_app
+from flask import jsonify, request, current_app
+from flask_smorest import Blueprint
 from flask_jwt_extended import  current_user, jwt_required
 from sqlalchemy.exc import SQLAlchemyError, DatabaseError
 from ...errors import APIError, ValidationError
 from ...extensions import db
 from ...models import Item, User, ItemCategory
-from ...schemas.item import ItemCreateSchema, ItemSchema, ItemFilterSchema, PaginatedItemSchema
+from ...schemas.item import ItemCreateSchema, ItemSchema, ItemFilterSchema, PaginatedItemSchema, ItemQuerySchema, \
+    ItemPaginationSchema
 from ...models import Item
 from ...schemas.item import ItemCreateSchema, ItemSchema, ItemUpdateSchema
 from ...services.item import ItemService
@@ -13,13 +15,35 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-items_crud_bp = Blueprint('items_crud', __name__, url_prefix='/api/items')
+items_crud_bp = Blueprint('Items', 'items', url_prefix='/api/items', description='Operations on items')
 schema = ItemCreateSchema()
 
 
 @items_crud_bp.route('', methods=['POST'])
+@items_crud_bp.doc(
+    description="Create a new item. Requires authentication.",
+    tags=["Items"],
+    security=[{"BearerAuth": []}]
+)
+@items_crud_bp.arguments(ItemCreateSchema)
+@items_crud_bp.response(201, ItemSchema)
 @jwt_required()
-def create_item():
+def create_item(data):
+    """
+    Create a new item.
+
+    Request body:
+    - title (str)
+    - description (str)
+    - category (str, optional)
+
+    Returns:
+    - item_id (int)
+    - title (str)
+    - description (str)
+    - category (str)
+    - created_at (datetime)
+    """
     try:
         validated_data = schema.load(request.json)
     except ValidationError as err:
@@ -64,19 +88,61 @@ def create_item():
 
 #get all items
 @items_crud_bp.route('', methods=['GET'])
-def get_all_item():
+@items_crud_bp.doc(
+    description="Get all items without filters (paginated).",
+    tags=["Items"]
+)
+@items_crud_bp.response(200, ItemSchema(many=True))
+def get_all_items():
+    """
+    Retrieve all items, paginated.
+
+    Query Parameters:
+    - page: int, page number (default 1)
+    - per_page: int, items per page (default 20)
+
+    Returns:
+    - List of item objects.
+    """
     try:
-        items =  Item.query.order_by(Item.created_at.desc()).all()
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        pagination = Item.query.order_by(Item.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        items = pagination.items
         return ItemSchema(many=True).dump(items), HTTPStatus.OK.value
     except DatabaseError:
-        raise APIError(
-            message="Failed to retrieve items",
-            code="DATABASE_ERROR",
-            status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value
-        )
+        return {
+            "success": False,
+            "error": "DATABASE_ERROR",
+            "message": "Failed to retrieve items"
+        }, HTTPStatus.INTERNAL_SERVER_ERROR.value
+    except Exception as e:
+        return {
+            "success": False,
+            "error": "INTERNAL_ERROR",
+            "message": str(e)
+        }, HTTPStatus.INTERNAL_SERVER_ERROR.value
+
 #get an item by id
 @items_crud_bp.route('/<int:item_id>', methods=['GET'])
+@items_crud_bp.doc(
+    description="Get an item by its ID.",
+    tags=["Items"],
+    security=[{"BearerAuth": []}]
+)
+@items_crud_bp.response(200, ItemSchema)
 def get_item_by_id(item_id):
+    """
+    Get item details.
+
+    Path params:
+    - item_id (int): ID of the item.
+
+    Returns:
+    - Item object.
+    """
     item = Item.query.get(item_id)
 
     if not item:
@@ -88,7 +154,7 @@ def get_item_by_id(item_id):
         )
 
     try:
-        return jsonify(ItemSchema().dump(item)), HTTPStatus.OK.value
+        return item, HTTPStatus.OK.value
     except DatabaseError :
         raise APIError(
             message="Database operation failed",
@@ -98,9 +164,41 @@ def get_item_by_id(item_id):
 
 
 @items_crud_bp.route('/params', methods=['GET'])
-def get_items():
+@items_crud_bp.doc(
+    description="Get items filtered by query params: category, school, min_price, max_price, keyword, condition, status, page, per_page, sort_by, sort_order.",
+    tags=["Items"]
+)
+@items_crud_bp.arguments(ItemQuerySchema, location='query')  # Ensure schema has all fields!
+@items_crud_bp.response(200, PaginatedItemSchema)
+def get_filtered_items(args):
+    """
+    Retrieve items with advanced filters.
+
+    Query params (validated by ItemQuerySchema):
+    - category (str)
+    - school (str)
+    - min_price (float)
+    - max_price (float)
+    - keyword (str)
+    - condition (str)
+    - status (str)
+    - sort_by (str: 'price', 'created_at')
+    - sort_order (str: 'asc', 'desc')
+    - page (int)
+    - per_page (int)
+
+    Returns:
+    {
+      items: [...],
+      total: <int>,
+      page: <int>,
+      per_page: <int>
+    }
+    """
     try:
-        filters = ItemFilterSchema().load(request.args)
+        # Pass all validated args directly as filters
+        filters = args
+
         result = ItemService.get_filtered_items(filters)
 
         return PaginatedItemSchema().dump({
@@ -117,21 +215,39 @@ def get_items():
         }), 400
 
     except SQLAlchemyError as e:
-        logger.error(f"Database error: {str(e)}")
+        logger.exception("Database error")
         return jsonify({
             "error": "DATABASE_ERROR",
             "message": "Could not retrieve items"
         }), 500
 
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.exception("Unexpected error")
         return jsonify({
             "error": "SERVER_ERROR",
             "message": "An unexpected error occurred"
         }), 500
 
-@items_crud_bp.route('paginated', methods=['GET'])
-def get_page_items():
+
+@items_crud_bp.route('/paginated', methods=['GET'])
+@items_crud_bp.doc(
+    description="Get paginated items with optional category filter.",
+    tags=["Items"],
+)
+@items_crud_bp.arguments(ItemPaginationSchema, location='query')
+@items_crud_bp.response(200, PaginatedItemSchema)
+def get_paginated_items(args):
+    """
+    Retrieve paginated items.
+
+    Query params:
+    - category (str, optional)
+    - page (int, optional)
+    - per_page (int, optional)
+
+    Returns:
+    - Paginated list of items.
+    """
     try:
         # Parse query params
         page = request.args.get('page', 1, type=int)
@@ -162,8 +278,23 @@ def get_page_items():
 
 
 @items_crud_bp.route('/<int:item_id>', methods=['DELETE'])
+@items_crud_bp.doc(
+    description="Delete an item by its ID. Requires authentication.",
+    tags=["Items"],
+    security=[{"BearerAuth": []}]
+)
+@items_crud_bp.response(204)
 @jwt_required()
 def delete_item(item_id):
+    """
+    Delete an item.
+
+    Path params:
+    - item_id (int): ID of the item.
+
+    Returns:
+    - No content (204).
+    """
     try:
         item = Item.query.get(item_id)
         if item.seller_id != current_user.user_id:
@@ -188,8 +319,30 @@ def delete_item(item_id):
         )
 
 @items_crud_bp.route('/<int:item_id>', methods=['PUT'])
+@items_crud_bp.doc(
+    description="Update an existing item. Requires authentication.",
+    tags=["Items"],
+    security=[{"BearerAuth": []}]
+)
+@items_crud_bp.arguments(ItemUpdateSchema)
+@items_crud_bp.response(200, None)
 @jwt_required()
-def update_item(item_id):
+def update_item(data, item_id):
+    """
+    Update an item.
+
+    Path params:
+    - item_id (int): ID of the item.
+
+    Request body:
+    - title (str, optional)
+    - description (str, optional)
+    - category (str, optional)
+    - status (str, optional)
+
+    Returns:
+    - Updated item object.
+    """
     errors = ItemUpdateSchema().validate(request.json)
     if errors:
         raise APIError(
