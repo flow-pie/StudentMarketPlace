@@ -96,7 +96,6 @@ def configure_app(app, config=None):
     if config:
         app.config.update(config)
 
-
 def initialize_extensions(app):
     """Initialize Flask extensions with proper error handling"""
     from .extensions import db, jwt, cors, migrate

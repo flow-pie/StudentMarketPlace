@@ -49,7 +49,6 @@ def create_item(data):
     except ValidationError as err:
         current_app.logger.error(f"Validation failed: {err.messages}")
         return jsonify({"errors": err.messages}), 400
-
     try:
         item = ItemService.create_item(
             user_id=current_user.user_id,
@@ -65,7 +64,7 @@ def create_item(data):
             "message": "Listing created successfully"
         }), HTTPStatus.CREATED.value
 
-    except ValueError as err:
+      except ValueError as err:
          raise APIError(
              message= "Invalid input data provided",
              code = "INVALID_INPUT",

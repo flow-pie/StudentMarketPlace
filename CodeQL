@@ -1,0 +1,45 @@
+name: "CodeQL - Python Secure Analysis"
+
+on:
+  push:
+    branches: [ "release", "protect_release_branch", "dev" ]
+  pull_request:
+    branches: [ "release", "protect_release_branch", "dev" ]
+  schedule:
+    - cron: '17 17 * * 1'  # Every Monday at 17:17 UTC
+
+jobs:
+  analyze:
+    name: CodeQL Python Analysis
+    runs-on: ubuntu-latest
+
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13' 
+
+    - name: 📦 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: 🚀 Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: python
+        build-mode: none 
+
+    - name: 🔍 Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:python"

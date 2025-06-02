@@ -158,7 +158,6 @@ def register(data):
 
         db.session.add(user)
         db.session.commit()
-
         return user, HTTPStatus.CREATED.value
 
     except ValidationError as err:

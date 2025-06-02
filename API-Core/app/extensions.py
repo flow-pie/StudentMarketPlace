@@ -41,7 +41,6 @@ ma.SQLAlchemyAutoSchema.OPTIONS_CLASS.include_relationships = True
 ma.SQLAlchemyAutoSchema.OPTIONS_CLASS.include_fk = True
 ma.handle_error = handle_ma_validation_error
 
-
 def init_app(app):
     """Initialize database, migrations and CORS extensions."""
     db.init_app(app)
