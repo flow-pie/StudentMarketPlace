@@ -23,7 +23,7 @@ ENV PYTHONPATH=/app/API-Core:$PYTHONPATH
 WORKDIR /app
 
 # Copy and install Python dependencies (cached layer)
-COPY API-Core/requirements.txt ./
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy only the API-Core code

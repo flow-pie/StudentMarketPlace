@@ -3,6 +3,6 @@
 __pycache__
 *.pyc
 .env
-Dockerfile
+API-Core/Dockerfile
 docker-compose.yml
 API-Core/infra/.env
