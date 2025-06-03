@@ -9,9 +9,13 @@ on:
 env:
   REGISTRY: ghcr.io
   #  IMAGE_NAME: "${{ github.repository_owner }}/api-core"
-  IMAGE_NAME: ${{ github.repository_owner | toLowerCase() }}/api-core
+  IMAGE_NAME: ${{ github.repository_owner | toLowerCase() }}/StudentMarketPlace
   DOCKERFILE_PATH: API-Core/Dockerfile
   CONTEXT: API-Core
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build-and-deploy:
