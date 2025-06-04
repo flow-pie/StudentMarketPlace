@@ -44,17 +44,13 @@ def create_item(data):
     - category (str)
     - created_at (datetime)
     """
-    try:
-        validated_data = schema.load(request.json)
-    except ValidationError as err:
-        current_app.logger.error(f"Validation failed: {err.messages}")
-        return jsonify({"errors": err.messages}), 400
+
     try:
         item = ItemService.create_item(
             user_id=current_user.user_id,
-            item_data=request.json
+            item_data=data
         )
-        return jsonify({
+        return {
             "success": True,
             "data": {
                 "item_id": item.item_id,
@@ -62,27 +58,21 @@ def create_item(data):
                 "status": item.status.value
             },
             "message": "Listing created successfully"
-        }), HTTPStatus.CREATED.value
+        }, HTTPStatus.CREATED
 
-    except ValueError as err:
-         raise APIError(
-             message= "Invalid input data provided",
-             code = "INVALID_INPUT",
-             status_code = HTTPStatus.BAD_REQUEST.value
-         )
-    except SQLAlchemyError as err:
+    except ValueError:
+        raise APIError(
+            message="Invalid input data provided",
+            code="INVALID_INPUT",
+            status_code=HTTPStatus.BAD_REQUEST
+        )
+    except SQLAlchemyError:
         db.session.rollback()
         raise APIError(
-            message= "Database operation failed",
-            code = "DATABASE_ERROR",
-            status_code = HTTPStatus.INTERNAL_SERVER_ERROR.value
+            message="Database operation failed",
+            code="DATABASE_ERROR",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR
         )
-    except Exception as err:
-        logger.error(f"Unexpected error: {str(err)}")
-        return jsonify({
-            "error": "SERVER_ERROR",
-            "message": "An unexpected error occurred"
-        }), 500
 
 
 #get all items

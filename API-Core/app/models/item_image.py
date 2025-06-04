@@ -20,8 +20,8 @@ class ItemImage(db.Model):
         db.UniqueConstraint(
             'item_id',
             name='uq_item_primary_image',
-            is_primary='is_primary IS TRUE')
-    )
+            is_primary='is_primary IS TRUE' )
+        )
 
     @staticmethod
     def get_next_order(item_id):

@@ -60,7 +60,7 @@ def configure_logging(app):
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(fmt)
 
-    # Clear any existing handlers from app.logger (to avoid leaks when code reloads)
+    #Clear any existing handlers from app.logger (to avoid leaks when code reloads)
     app.logger.handlers.clear()
     app.logger.addHandler(file_handler)
     app.logger.addHandler(console_handler)

@@ -68,8 +68,7 @@ def upload_image(data, item_id):
         existing_images = ItemImage.query.filter_by(item_id=item_id).all()
         is_primary = len(existing_images) == 0
 
-        new_image = ItemImage(item_id=item.item_id, image_url=filepath, is_primary=is_primary,
-                              order=len(existing_images))
+        new_image = ItemImage(item_id=item.item_id, image_url=filepath, is_primary=is_primary, order=len(existing_images))
         db.session.add(new_image)
         db.session.commit()
         return new_image.to_dict(), 201

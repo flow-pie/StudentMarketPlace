@@ -97,6 +97,7 @@ def send_message(data):
     },
     tags=["Messaging System"]
 )
+
 @msg_bp.response(200, message_output_schema)
 @jwt_required()
 @msg_bp.doc(
@@ -109,6 +110,7 @@ def send_message(data):
         }
     },
     tags=["Messaging System"]
+
 
 )
 def get_inbox(user_id):
