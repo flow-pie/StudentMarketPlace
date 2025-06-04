@@ -50,7 +50,7 @@ jobs:
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
-          images: ${{ steps.build-push.outputs.digest }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
 
       - name: Log in to Azure (for app service settings)
         uses: azure/login@v1
