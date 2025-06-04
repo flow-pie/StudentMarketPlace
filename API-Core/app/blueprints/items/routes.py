@@ -64,7 +64,7 @@ def create_item(data):
             "message": "Listing created successfully"
         }), HTTPStatus.CREATED.value
 
-      except ValueError as err:
+    except ValueError as err:
          raise APIError(
              message= "Invalid input data provided",
              code = "INVALID_INPUT",

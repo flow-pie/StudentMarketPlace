@@ -96,8 +96,10 @@ def initialize_database():
     """Initialize database with comprehensive error handling"""
     try:
         with app.app_context():
-            logger.info(f"Database connection: {app.config['SQLALCHEMY_DATABASE_URI']}")
-
+            logger.info(
+                color_print("success",
+                            f"Database connection: successfully connected to {'PostgreSQL' if 'postgres' in app.config['SQLALCHEMY_DATABASE_URI'] else 'MySQL'}"
+                            ))
             if Config.ENV == 'development':
                 logger.info("Running in development mode")
                 # db.drop_all()  # Uncomment if  you want to drop all
