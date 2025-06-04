@@ -156,6 +156,26 @@ class LoginResponseSchema(Schema):
 class MessageSchema(Schema):
     message = fields.String()
 
+class ForgotPasswordRequestSchema(Schema):
+    email = fields.Email(required=True)
+
+class ResetPasswordRequestSchema(Schema):
+    email = fields.Email(required=True)
+    otp = fields.Str(required=True, validate=validate.Length(equal=6))
+    new_password = fields.Str(
+        required=True,
+        validate=[
+            validate.Length(min=8, error="Must be at least 8 characters"),
+            validate.Regexp(r'(?=.*\d)', error="Must contain a digit"),
+            validate.Regexp(r'(?=.*[a-z])', error="Must contain lowercase"),
+            validate.Regexp(r'(?=.*[A-Z])', error="Must contain uppercase"),
+            validate.Regexp(r'(?=.*[\W_])', error="Must contain a special character (!@#$%^&* etc.)")
+        ],
+        load_only=True
+    )
+
+class ResetPasswordResponseSchema(Schema):
+    message = fields.Str(required=True)
 
 class UserBanSchema(Schema):
     banned = fields.Boolean(required=True)
