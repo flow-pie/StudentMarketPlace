@@ -10,7 +10,7 @@ from ..models.user import UserInstitution
 class ItemService:
     @staticmethod
     def create_item(user_id, item_data):
-       category_enum = ItemCategory(item_data["category"])  #
+        category_enum = ItemCategory(item_data["category"])  #
         condition_enum = ItemCondition(item_data["condition"])
         new_item = Item(
             seller_id=user_id,

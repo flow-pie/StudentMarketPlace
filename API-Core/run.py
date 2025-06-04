@@ -12,66 +12,18 @@ from colorama import Fore, Style, init
 from sqlalchemy.exc import OperationalError
 import pymysql
 
-from app import create_app
+from app import create_app, configure_logging
 from app.extensions import db
 from app.config import Config
 
 # colored console output
 init(autoreset=True)
 
-
-def configure_logging():
-    """Configure comprehensive logging system with file rotation"""
-    # Create logs directory relative to this file's location
-    log_dir = Path(__file__).parent / 'logs'
-    log_dir.mkdir(exist_ok=True)
-
-    log_file = log_dir / 'app_errors.log'
-
-    root_logger = logging.getLogger()
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-        handler.close()
-
-    formatter = logging.Formatter(
-        '%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-
-    #(5MB per file, keep 3 backups)
-    file_handler = RotatingFileHandler(
-        filename=log_file,
-        maxBytes=5 * 1024 * 1024,  # 5MB
-        backupCount=3,
-        encoding='utf-8'
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.INFO)
-
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(logging.INFO)
-
-    # root logger
-    root_logger.setLevel(logging.INFO)
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
-
-    # Flask's logger
-    flask_logger = logging.getLogger('werkzeug')
-    flask_logger.handlers.clear()
-    flask_logger.addHandler(file_handler)
-    flask_logger.addHandler(console_handler)
-
-    return str(log_file.absolute())
-
-
-log_file_path = configure_logging()
 logger = logging.getLogger(__name__)
-logger.info(f"Logging system initialized. Log file: {log_file_path}")
 
 app = create_app()
+log_file_path = configure_logging(app)
+logger.info(f"Logging system initialized. Log file {log_file_path}")
 
 
 def color_print(level, message):
@@ -96,8 +48,10 @@ def initialize_database():
     """Initialize database with comprehensive error handling"""
     try:
         with app.app_context():
-            logger.info(f"Database connection: {app.config['SQLALCHEMY_DATABASE_URI']}")
-
+            logger.info(
+                color_print("success",
+                            f"Database connection: successfully connected to {'PostgreSQL' if 'postgres' in app.config['SQLALCHEMY_DATABASE_URI'] else 'MySQL'}"
+                            ))
             if Config.ENV == 'development':
                 logger.info("Running in development mode")
                 # db.drop_all()  # Uncomment if  you want to drop all
