@@ -73,15 +73,9 @@ def configure_app(app, config=None):
     app.config.from_object(Config)
 
     # Database configuration
-    # app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-    #     'NEON_POSTGRES_URL',
-    #     os.getenv('SQLITE_URL', 'sqlite:///default.db')
-    # )
-
-    # supabase connection
-    app.config['SQLALCHEMY_DATABASE_URI'] = (
-        f"postgresql://{os.getenv('USER')}:{os.getenv('PASSWORD')}"
-        f"@{os.getenv('HOST')}:{os.getenv('PORT')}/{os.getenv('DBNAME')}"
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+        'SUPABASE_CONN',
+        os.getenv('SQLITE_URL', 'sqlite:///default.db')
     )
 
     # Optimized connection pooling settings for Supabase
