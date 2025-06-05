@@ -74,9 +74,7 @@ def configure_app(app, config=None):
 
     # Database configuration
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-        'SUPABASE_CONN',
-        os.getenv('SQLITE_URL', 'sqlite:///default.db')
-    )
+        'SUPABASE_CONN')
 
     # Optimized connection pooling settings for Supabase
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {

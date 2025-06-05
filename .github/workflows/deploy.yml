@@ -71,9 +71,9 @@ jobs:
           app-settings-json: |
             [
               {
-                "name": "DATABASE_URL",
-                "value": "${{ secrets.DATABASE_URL }}",
-                "slotSetting": false
+                 "name": "SUPABASE_CONN",
+                  "value": "${{ secrets.SUPABASE_CONN }}",
+                  "slotSetting": false
               },
               {
                 "name": "JWT_SECRET_KEY",
