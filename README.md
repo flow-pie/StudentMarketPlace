@@ -1,4 +1,15 @@
 # 🎓 StudentMarketPlace: Campus Buy & Sell Platform
+## 🌐 API Access
+
+The API is live and accessible here:
+
+👉 [`https://marketplace-api-bjdwhhdbgnauhgac.canadacentral-01.azurewebsites.net/`](https://marketplace-api-bjdwhhdbgnauhgac.canadacentral-01.azurewebsites.net/)
+
+PLEASE NOTE:
+> 
+> ⚠️ This is a pre-release version (`v0.1.0-beta`)
+> 
+> ⚠️ URL may change in future production deployments
 
 ```mermaid
 graph TD
