@@ -71,8 +71,8 @@ def login(data):
                 code="ACCOUNT_BANNED",
                 status_code=HTTPStatus.FORBIDDEN
             )
-
-        if user.account_status != AccountStatus.ACTIVE:
+        # allow unverified users to login atleast for now:
+        if user.account_status != AccountStatus.UNVERIFIED and user.account_status != AccountStatus.ACTIVE:
             raise APIError(
                 message="Account not active",
                 code="ACCOUNT_INACTIVE",
@@ -120,7 +120,8 @@ def login(data):
                     code="ACCOUNT_BANNED",
                     status_code=HTTPStatus.FORBIDDEN
                 )
-            if user.account_status != AccountStatus.ACTIVE:
+            # allow unverified users to login atleast for now:
+            if user.account_status != AccountStatus.UNVERIFIED and user.account_status != AccountStatus.ACTIVE:
                 raise APIError(
                     message="Account not active",
                     code="ACCOUNT_INACTIVE",
