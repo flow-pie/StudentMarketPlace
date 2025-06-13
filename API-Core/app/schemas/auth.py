@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from flask_bcrypt import generate_password_hash
 from marshmallow import (
     Schema, fields, validate, validates, ValidationError,
@@ -7,7 +9,7 @@ import bleach
 import re
 from datetime import datetime
 
-from .. import db
+from .. import db, APIError
 from ..models import User
 from ..models.user import UserInstitution
 
@@ -127,9 +129,10 @@ class LoginSchema(SecureAuthSchema):
                     elapsed = (datetime.utcnow() - user.last_failed_login).total_seconds()
                     if elapsed < LOCKOUT_TIME:
                         remaining = int(LOCKOUT_TIME - elapsed)
-                        raise ValidationError(
-                            f"Account locked. Try again in {remaining} seconds",
-                            "email"
+                        raise APIError(
+                            message=f"Account locked. Try again in {remaining} seconds",
+                            code="ACCOUNT_LOCKED",
+                            status_code=HTTPStatus.TOO_MANY_REQUESTS
                         )
 
 

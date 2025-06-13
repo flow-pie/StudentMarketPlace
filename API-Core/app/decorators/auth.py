@@ -5,7 +5,6 @@ from http import HTTPStatus
 
 from ..errors import APIError
 
-
 def jwt_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -18,6 +17,7 @@ def jwt_required(fn):
                 code="AUTH_REQUIRED",
                 status_code=HTTPStatus.UNAUTHORIZED
             )
+
     return wrapper
 
 def admin_required(fn):

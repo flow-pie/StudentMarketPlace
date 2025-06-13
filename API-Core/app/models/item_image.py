@@ -16,9 +16,12 @@ class ItemImage(db.Model):
     item = db.relationship('Item', backref=db.backref('images', lazy='dynamic', cascade='all, delete-orphan'))
 
     __table_args__ = (
-        db.Index('idx_item_image_order', 'item_id', 'order'),  # For ordered display
-        db.UniqueConstraint('item_id', 'is_primary', name='uq_item_primary_image'),  # Only one primary per item
-    )
+        db.Index('idx_item_image_order', 'item_id', 'order'),
+        db.UniqueConstraint(
+            'item_id',
+            name='uq_item_primary_image',
+            is_primary='is_primary IS TRUE' )
+        )
 
     @staticmethod
     def get_next_order(item_id):

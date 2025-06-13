@@ -57,9 +57,21 @@ class ItemUpdateSchema(SecureSchema):
         places=2,
         validate=validate.Range(min=0.01, max=99999.99)
     )
-    category = EnumField(ItemCategory, by_value=True, required=False)
-    condition = EnumField(ItemCondition, by_value=True, required=False)
-    status = EnumField(ItemStatus, by_value=True, required=False)
+    category = fields.String(
+        required=False,
+        validate=validate.OneOf([c.value for c in ItemCategory]),
+        metadata={'enum': [c.value for c in ItemCategory]}
+    )
+    condition = fields.String(
+        required=False,
+        validate=validate.OneOf([c.value for c in ItemCondition]),
+        metadata={'enum': [c.value for c in ItemCondition]}
+    )
+    status = fields.String(
+        required=False,
+        validate=validate.OneOf([s.value for s in ItemStatus]),
+        metadata={'enum': [s.value for s in ItemStatus]}
+    )
 
 
 class ItemSchema(SecureSchema):
@@ -153,8 +165,16 @@ class ItemCreateSchema(SecureSchema):
         places=2,
         validate=validate.Range(min=0.01, max=99999.99)
     )
-    category = EnumField(ItemCategory, by_value=True, required=True)
-    condition = EnumField(ItemCondition, by_value=True, required=True)
+    category = fields.String(
+        required=False,
+        validate=validate.OneOf([c.value for c in ItemCategory]),
+        metadata={'enum': [c.value for c in ItemCategory]}
+    )
+    condition = fields.String(
+        required=False,
+        validate=validate.OneOf([c.value for c in ItemCondition]),
+        metadata={'enum': [c.value for c in ItemCondition]}
+    )
 
 
 class ImageResponseSchema(Schema):

@@ -65,10 +65,10 @@ def upload_image(data, item_id):
 
     try:
         filepath = ImageService.save_image(image_file, item_id)
+        existing_images = ItemImage.query.filter_by(item_id=item_id).all()
+        is_primary = len(existing_images) == 0
 
-        is_primary = not bool(item.images)  # True if there are no existing image
-
-        new_image = ItemImage(item_id=item.item_id, image_url=filepath, is_primary=is_primary)
+        new_image = ItemImage(item_id=item.item_id, image_url=filepath, is_primary=is_primary, order=len(existing_images))
         db.session.add(new_image)
         db.session.commit()
         return new_image.to_dict(), 201
