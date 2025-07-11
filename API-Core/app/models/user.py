@@ -42,6 +42,9 @@ class User(db.Model):
     last_failed_login = db.Column(db.DateTime)
     account_locked = db.Column(db.Boolean, default=False)
 
+    otp_code = db.Column(db.String(10), nullable=True)
+    otp_expiration = db.Column(db.DateTime, nullable=True)
+
     # Relationships
     items = db.relationship('Item', back_populates='seller')
     transactions_as_buyer = db.relationship(

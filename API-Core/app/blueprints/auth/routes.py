@@ -20,7 +20,7 @@ from ...extensions import db
 from ...models.user import TokenBlockList, User, UserInstitution
 from ...models.user import AccountStatus
 from ...schemas.auth import LoginSchema, RegistrationSchema, LoginResponseSchema, UserResponseSchema, TokenSchema, \
-    MessageSchema
+    MessageSchema,ForgotPasswordRequestSchema,ResetPasswordRequestSchema,ResetPasswordResponseSchema
 from ...services.auth import AuthService
 from flask_limiter import Limiter
 
@@ -29,22 +29,51 @@ auth_bp = Blueprint('Authentication', __name__,
 
 limiter = Limiter(key_func=get_remote_address)
 
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+@auth_bp.arguments(ForgotPasswordRequestSchema)
+@auth_bp.response(HTTPStatus.OK, MessageSchema, description="Sends OTP to user's email for password reset")
+def forgot_password(data):
+    """
+    Forgot password endpoint.
+
+    Accepts email, generates OTP, and sends it to the user's email.
+    """
+    user = None
+
+    try:
+        AuthService.generate_and_send_otp(data['email'])
+        return {"message": "OTP sent to your email"}, HTTPStatus.OK
+    except ValueError as e:
+        abort(HTTPStatus.BAD_REQUEST, message=str(e))
+    except Exception as e:
+        current_app.logger.error(f"Forgot password error: {str(e)}", exc_info=True)
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, message="Failed to send OTP")
+
+@auth_bp.route('/reset-password', methods=['POST'])
+@auth_bp.arguments(ResetPasswordRequestSchema)
+@auth_bp.response(HTTPStatus.OK, ResetPasswordResponseSchema, description="Resets password using OTP")
+def reset_password(data):
+    """
+    Reset password endpoint.
+
+    Accepts email, OTP, and new password. Verifies OTP and resets password.
+    """
+    try:
+        AuthService.verify_otp_and_reset_password(data['email'], data['otp'], data['new_password'])
+        return {"message": "Password reset successful"}, HTTPStatus.OK
+    except ValueError as e:
+        abort(HTTPStatus.BAD_REQUEST, message=str(e))
+    except Exception as e:
+        current_app.logger.error(f"Reset password error: {str(e)}", exc_info=True)
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, message="Failed to reset password")
+        
 @auth_bp.route('/login', methods=['POST'])
 @limiter.limit("10 per minute")
 @auth_bp.arguments(LoginSchema)
 @auth_bp.response(HTTPStatus.OK, LoginResponseSchema,
                   description="Successful login returns access and refresh tokens with user details")
 def login(data):
-    """
-    User login endpoint.
-
-    Accepts email and password, verifies credentials,
-    returns JWT tokens (access and refresh) if successful.
-    Rate limited to 10 requests per minute.
-    """
-    user = None
-
-    try:
         schema = LoginSchema()
         data = schema.load(request.json)
 
@@ -140,6 +169,7 @@ def login(data):
             code="AUTH_FAILURE",
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR
         )
+
 
 @auth_bp.route('/register', methods=['POST'])
 @limiter.limit("10 per minute")
