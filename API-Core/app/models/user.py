@@ -6,7 +6,6 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from ..extensions import db
 from werkzeug.security import generate_password_hash, check_password_hash
 
-
 class UserInstitution(str, Enum):
     POLYTECHNIC = 'Polytechnic'
     UNIVERSITY = 'University'

@@ -11,17 +11,19 @@ class MessageService:
         item_id = message_data['item_id']
         content = message_data['content']
 
-        # Get item and validate
+        if not content or len(content) > 1000:
+            raise ValueError("Message content must be 1-1000 characters")
+
         item = Item.query.get(item_id)
         if not item:
-            raise ValueError("Item not found")
+            raise ValueError(f"Item {item_id} not found")
 
         if item.seller_id == sender_id:
-            raise ValueError("Cannot message yourself")
+            raise PermissionError("Cannot message yourself about your own item")
 
         conversation = Conversation.query.filter(
-            (Conversation.item_id == item_id) &
-            (Conversation.sender_id == sender_id)
+            Conversation.item_id == item_id,
+            Conversation.sender_id == sender_id
         ).first()
 
         if not conversation:
@@ -30,17 +32,24 @@ class MessageService:
                 item_id=item_id
             )
             db.session.add(conversation)
-            db.session.flush()
+            db.session.flush()  # Get conversation ID without committing
 
-            conversation.participants = [
-                ConversationParticipant(user_id=sender_id),
-                ConversationParticipant(user_id=item.seller_id)
-            ]
+            # Add participants
+            db.session.add_all([
+                ConversationParticipant(
+                    conversation_id=conversation.conversation_id,
+                    user_id=sender_id
+                ),
+                ConversationParticipant(
+                    conversation_id=conversation.conversation_id,
+                    user_id=item.seller_id
+                )
+            ])
 
+        # Create message
         message = Message(
             conversation_id=conversation.conversation_id,
             sender_id=sender_id,
-            receiver_id=item.seller_id,  # Receiver is always item owner
             content=content
         )
         db.session.add(message)

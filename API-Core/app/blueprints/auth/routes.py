@@ -39,6 +39,8 @@ def forgot_password(data):
 
     Accepts email, generates OTP, and sends it to the user's email.
     """
+    user = None
+
     try:
         AuthService.generate_and_send_otp(data['email'])
         return {"message": "OTP sent to your email"}, HTTPStatus.OK
@@ -65,6 +67,109 @@ def reset_password(data):
     except Exception as e:
         current_app.logger.error(f"Reset password error: {str(e)}", exc_info=True)
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message="Failed to reset password")
+        
+@auth_bp.route('/login', methods=['POST'])
+@limiter.limit("10 per minute")
+@auth_bp.arguments(LoginSchema)
+@auth_bp.response(HTTPStatus.OK, LoginResponseSchema,
+                  description="Successful login returns access and refresh tokens with user details")
+def login(data):
+        schema = LoginSchema()
+        data = schema.load(request.json)
+
+        user = User.query.filter_by(email=data['email']).first()
+
+        if not user:
+            raise APIError(
+                message="Email not registered",
+                code="EMAIL_NOT_FOUND",
+                status_code=HTTPStatus.UNAUTHORIZED
+            )
+
+        if not user.check_password(data['password']):
+            user.record_failed_login()
+            raise APIError(
+                message="Incorrect password",
+                code="INCORRECT_PASSWORD",
+                status_code=HTTPStatus.UNAUTHORIZED
+            )
+
+        if user.account_status == AccountStatus.BANNED:
+            raise APIError(
+                message="Account banned",
+                code="ACCOUNT_BANNED",
+                status_code=HTTPStatus.FORBIDDEN
+            )
+        # allow unverified users to login atleast for now:
+        if user.account_status != AccountStatus.UNVERIFIED and user.account_status != AccountStatus.ACTIVE:
+            raise APIError(
+                message="Account not active",
+                code="ACCOUNT_INACTIVE",
+                status_code=HTTPStatus.FORBIDDEN
+            )
+
+        user.last_login = datetime.now(timezone.utc)
+        db.session.commit()
+
+        access_token, refresh_token = AuthService.generate_token(user)
+        return {
+            "message": "Login successful",
+            "tokens": {
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            },
+            "user": user.to_dict()
+        }, HTTPStatus.OK
+
+    except ValidationError as err:
+        if "Account locked" in str(err):
+            raise APIError(
+                message=str(err),
+                code="ACCOUNT_LOCKED",
+                status_code=HTTPStatus.TOO_MANY_REQUESTS
+            )
+        else:
+            raise APIError(
+                message=str(err),
+                code="VALIDATION_ERROR",
+                status_code=HTTPStatus.BAD_REQUEST
+            )
+
+    except APIError as api_err:
+        raise api_err
+
+    except Exception as err:
+        db.session.rollback()
+        current_app.logger.error(f"Login error: {str(err)}", exc_info=True)
+
+        if user is not None:
+            if user.account_status == AccountStatus.BANNED:
+                raise APIError(
+                    message="Account banned",
+                    code="ACCOUNT_BANNED",
+                    status_code=HTTPStatus.FORBIDDEN
+                )
+            # allow unverified users to login atleast for now:
+            if user.account_status != AccountStatus.UNVERIFIED and user.account_status != AccountStatus.ACTIVE:
+                raise APIError(
+                    message="Account not active",
+                    code="ACCOUNT_INACTIVE",
+                    status_code=HTTPStatus.FORBIDDEN
+                )
+
+        if "Account locked" in str(err):
+            raise APIError(
+                message=str(err),
+                code="ACCOUNT_LOCKED",
+                status_code=HTTPStatus.TOO_MANY_REQUESTS
+            )
+
+        raise APIError(
+            message="Authentication failed",
+            code="AUTH_FAILURE",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR
+        )
+
 
 @auth_bp.route('/register', methods=['POST'])
 @limiter.limit("10 per minute")
@@ -93,7 +198,6 @@ def register(data):
 
         db.session.add(user)
         db.session.commit()
-
         return user, HTTPStatus.CREATED.value
 
     except ValidationError as err:

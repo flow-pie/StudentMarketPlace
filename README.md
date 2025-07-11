@@ -1,4 +1,15 @@
 # 🎓 StudentMarketPlace: Campus Buy & Sell Platform
+## 🌐 API Access
+
+The API is live and accessible here:
+
+👉 [`https://marketplace-api-bjdwhhdbgnauhgac.canadacentral-01.azurewebsites.net`](https://marketplace-api-bjdwhhdbgnauhgac.canadacentral-01.azurewebsites.net)
+
+PLEASE NOTE:
+> 
+> ⚠️ This is a pre-release version (`v0.1.0-beta`)
+> 
+> ⚠️ URL may change in future production deployments
 
 ```mermaid
 graph TD
@@ -375,7 +386,7 @@ git commit -m "feat(notifications): ✨ add push notification service" -m "
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 

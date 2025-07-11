@@ -7,21 +7,27 @@ from ..models import Item, ItemStatus, ItemCategory, ItemCondition, User
 from ..extensions import db
 from ..models.user import UserInstitution
 
+
 class ItemService:
     @staticmethod
     def create_item(user_id, item_data):
-        category_enum = ItemCategory(item_data["category"])  #
-        condition_enum = ItemCondition(item_data["condition"])
+        # Convert input strings to enum values
+        try:
+            category_enum = ItemCategory(item_data['category'])
+            condition_enum = ItemCondition(item_data['condition'])
+        except ValueError as e:
+            raise ValueError(f"Invalid enum value: {str(e)}") from e
 
         new_item = Item(
             seller_id=user_id,
             title=item_data["title"],
             description=item_data["description"],
             price=item_data["price"],
-            category= category_enum,
-            condition= condition_enum,
-            status=ItemStatus.AVAILABLE  # Default status
+            category=category_enum,
+            condition=condition_enum,
+            status=ItemStatus.AVAILABLE
         )
+
         db.session.add(new_item)
         db.session.commit()
         return new_item
@@ -64,6 +70,7 @@ class ItemService:
 
         if filters.get('condition'):
             query = query.filter(Item.condition == filters['condition'])
+
         if filters.get('status'):
             query = query.filter(Item.status == filters['status'])
 
@@ -130,7 +137,13 @@ class ItemService:
     @staticmethod
     def update_item(item_data):
         # Get item by ID from the data
-        item = Item.query.get_or_404(item_data["item_id"])  # FIXED
+        item = Item.query.get_or_404(item_data["item_id"])
+        try:
+            category_enum = ItemCategory(item_data['category'])
+            condition_enum = ItemCondition(item_data['condition'])
+            status_enum = ItemStatus(item_data['status'])
+        except ValueError as e:
+            raise ValueError(f"Invalid enum value: {str(e)}") from e
 
         # Verify correct ownership field
         if item.seller_id != item_data["user_id"]:  # Changed user_id to seller_id
@@ -144,11 +157,11 @@ class ItemService:
         if "price" in item_data:
             item.price = item_data["price"]
         if "category" in item_data:
-            item.category = ItemCategory(item_data["category"])
+            item.category = category_enum
         if "condition" in item_data:
-            item.condition = ItemCondition(item_data["condition"])
+            item.condition = condition_enum
         if "status" in item_data:
-            item.status = ItemStatus(item_data["status"])
+            item.status = status_enum
 
         db.session.commit()
         return item

@@ -13,12 +13,10 @@ items_bp = Blueprint('testing routes', __name__)
 def protected_items():
     return jsonify(message=f"Hello {current_user.email}!"), 200
 
-
 @items_bp.route('/items', methods=['GET'])
 @admin_required
 def admin_only():
     return jsonify(message="Top secret admins data")
-
 
 @items_bp.route('/public', methods=['GET'])
 def public_route():

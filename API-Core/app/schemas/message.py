@@ -39,9 +39,7 @@ class MessageCreateSchema(SecureMessageSchema):
     content = fields.Str(
         required=True,
         validate=[
-            validate.Length(min=1, max=1000),
-            validate.Regexp(r'^[\w\s\-.,!?@\'"():;\n]+$',
-                          error="Contains invalid characters or formatting")
+            validate.Length(min=1, max=1000)
         ]
     )
 

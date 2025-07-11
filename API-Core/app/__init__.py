@@ -74,9 +74,17 @@ def configure_app(app, config=None):
 
     # Database configuration
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-        'NEON_POSTGRES_URL',
-        os.getenv('SQLITE_URL', 'sqlite:///default.db')
-    )
+        'SUPABASE_CONN')
+
+    # Optimized connection pooling settings for Supabase
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_size': 1,  # Max connections per worker
+        'max_overflow': 0,  # No additional connections beyond pool_size
+        'pool_timeout': 10,  # Wait time for connection (seconds)
+        'pool_recycle': 300,  # Recycle connections every 5 minutes (300s)
+        'pool_pre_ping': True,  # Check connection health before use
+        'pool_use_lifo': True  # Use Last-In-First-Out queue for better connection reuse
+    }
 
     # JWT Configuration
     app.config.update({
@@ -86,7 +94,8 @@ def configure_app(app, config=None):
         'JWT_ERROR_MESSAGE_KEY': 'message',
         'PROPAGATE_EXCEPTIONS': True,
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
-        'ENV': os.getenv('FLASK_ENV', 'development'),
+        'ENV': os.getenv('FLASK_ENV', 'production'),
+        'SQLALCHEMY_ENGINE_OPTIONS': app.config['SQLALCHEMY_ENGINE_OPTIONS']  #useful for supabase
     })
 
     if not app.config['JWT_SECRET_KEY']:
@@ -95,6 +104,12 @@ def configure_app(app, config=None):
     # Apply any additional config
     if config:
         app.config.update(config)
+
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db.session.remove()
+        if hasattr(db, 'engine') and db.engine:
+            db.engine.dispose()
 
 
 def initialize_extensions(app):
@@ -221,7 +236,7 @@ def register_blueprints(app):
 
     @app.errorhandler(APIError)
     def handle_api_error(error):
-        app.logger.error(f"API Error [{error.code}]: {error.message}")
+        app.logger.error(f"API Error [{error.code}]: {error.message} : {str(error)}")
         response = jsonify({
             'error': error.code,
             'message': error.message,
@@ -231,17 +246,14 @@ def register_blueprints(app):
         return response
 
     @app.errorhandler(HTTPException)
-    def handle_http_error(e):
-        if isinstance(e, NotFound):
-            # Return JSON response for 404 errors
-            response = jsonify({
-                "error": "NOT_FOUND",
-                "message": "The requested resource was not found",
-                "status": e.code
-            })
-            response.status_code = e.code
-            return response
-        raise APIError(e.description, e.name.replace(' ', '_').upper(), e.code)
+    def handle_http_exception(e):
+        """Handle Werkzeug HTTP exceptions"""
+        app.logger.error(f"HTTP Error {e.code}: {e.description}")
+        return jsonify({
+            'error': e.code,
+            'message': e.description,
+            'code': e.name.replace(' ', '_').upper()
+        }), e.code
 
     @app.errorhandler(Exception)
     def handle_unexpected_error(err):

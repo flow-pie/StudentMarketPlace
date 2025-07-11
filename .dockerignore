@@ -1,8 +1,7 @@
 .git
-.venv
 __pycache__
 *.pyc
 .env
-Dockerfile
-docker-compose.yml
-API-Core/infra/.env
+docker-compose*
+infra/
+postman/
