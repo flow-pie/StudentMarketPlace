@@ -5,6 +5,7 @@ from flask import Flask, jsonify
 import os
 from datetime import timedelta
 import logging
+import time
 from werkzeug.exceptions import HTTPException, NotFound
 from .config import Config
 from .errors import APIError, configure_logging, register_error_handlers, ValidationError
@@ -12,7 +13,7 @@ from .extensions import db, api
 from .models.user import TokenBlockList
 from .middleware.security import SecurityMiddleware
 from .middleware.caching import cache_manager
-from .middleware.monitoring import monitoring_bp
+from .middleware.monitoring import monitoring_bp, init_monitoring
 
 # Configure logging before app creation
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +25,9 @@ def create_app(config=None):
 
     # Load environment variables FIRST
     load_dotenv()
+
+    # Set application start time
+    app.config['START_TIME'] = time.time()
 
     # Configure application settings
     configure_app(app, config)
@@ -57,6 +61,9 @@ def create_app(config=None):
 
     # Initialize middleware
     initialize_middleware(app)
+
+    # Initialize monitoring
+    init_monitoring(app)
 
     # Register error handlers (before blueprints)
     register_error_handlers(app)
