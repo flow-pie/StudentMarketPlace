@@ -30,7 +30,7 @@ class HealthChecker:
             logger.error(f"Database health check failed: {str(e)}")
             return {
                 'status': 'unhealthy',
-                'error': str(e),
+                'error': "An internal error has occurred!",
                 'response_time_ms': -1
             }
 
@@ -52,7 +52,7 @@ class HealthChecker:
             }
         except Exception as e:
             logger.error(f"System resource check failed: {str(e)}")
-            return {'status': 'unhealthy', 'error': str(e)}
+            return {'status': 'unhealthy', 'error': "An internal error has occurred!"}
 
     @staticmethod
     def get_application_metrics():
@@ -74,7 +74,7 @@ class HealthChecker:
             return metrics
         except Exception as e:
             logger.error(f"Application metrics check failed: {str(e)}")
-            return {'error': str(e)}
+            return {'error': "An internal error has occurred!"}
 
 
 class RequestMetrics:

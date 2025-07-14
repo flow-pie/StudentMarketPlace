@@ -57,7 +57,7 @@ def health_check():
         logger.error(f"Health check failed: {str(e)}")
         return jsonify({
             'status': 'unhealthy',
-            'error': str(e),
+            'error': "An internal error has occurred!",
             'timestamp': time.time()
         }), HTTPStatus.SERVICE_UNAVAILABLE
 
@@ -94,7 +94,7 @@ def readiness_check():
         logger.error(f"Readiness check failed: {str(e)}")
         return jsonify({
             'status': 'not_ready',
-            'error': str(e),
+            'error': "An internal error has occurred!",
             'timestamp': time.time()
         }), HTTPStatus.SERVICE_UNAVAILABLE
 
@@ -148,6 +148,6 @@ def metrics_endpoint():
     except Exception as e:
         logger.error(f"Metrics endpoint failed: {str(e)}")
         return jsonify({
-            'error': str(e),
+            'error': "An internal error has occurred!",
             'timestamp': time.time()
         }), HTTPStatus.INTERNAL_SERVER_ERROR
