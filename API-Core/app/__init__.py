@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import os
 from datetime import timedelta
 import logging
@@ -13,14 +13,13 @@ from .extensions import db, api
 from .models.user import TokenBlockList
 from .middleware.security import SecurityMiddleware
 from .middleware.caching import cache_manager
-from .middleware.monitoring import monitoring_bp, init_monitoring
+from .middleware.monitoring import init_monitoring
 
 # Configure logging before app creation
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def create_app(config=None):
-    """Application factory with enhanced configuration and error handling"""
     app = Flask(__name__)
 
     # Load environment variables FIRST
@@ -32,7 +31,7 @@ def create_app(config=None):
     # Configure application settings
     configure_app(app, config)
 
-    # Swagger Config
+    # Swagger Config - MUST COME FIRST
     app.config['API_TITLE'] = 'Student Marketplace API documentation with endpoints '
     app.config['API_DESCRIPTION'] = 'Marketplace API documentation with endpoints for items, users, auth, etc.'
     app.config['API_VERSION'] = 'v1'
@@ -41,6 +40,7 @@ def create_app(config=None):
     app.config['OPENAPI_SWAGGER_UI_PATH'] = '/'
     app.config['OPENAPI_SWAGGER_UI_URL'] = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist/'
 
+    # Initialize API IMMEDIATELY AFTER SWAGGER CONFIG
     api.init_app(app)
     api.spec.components.security_scheme(
         "BearerAuth",
@@ -51,7 +51,7 @@ def create_app(config=None):
         },
     )
 
-    # Configure logging FIRST before any other operations
+    # Configure logging
     configure_logging(app)
     logger = logging.getLogger(__name__)
     logger.info("Initializing application...")
@@ -59,20 +59,17 @@ def create_app(config=None):
     # Initialize extensions
     initialize_extensions(app)
 
-    # Initialize middleware
-    initialize_middleware(app)
-
     # Initialize monitoring
-    init_monitoring(app)
+    # init_monitoring(app)
 
-    # Register error handlers (before blueprints)
+    # Register error handlers
     register_error_handlers(app)
+
+    # Initialize middleware
+    app = initialize_middleware(app)
 
     # Register blueprints
     register_blueprints(app)
-
-    # Register monitoring blueprint
-    app.register_blueprint(monitoring_bp)
 
     # Configure teardown context
     @app.teardown_appcontext
@@ -82,19 +79,75 @@ def create_app(config=None):
     logger.info("Application initialized successfully")
     return app
 
+
 def initialize_middleware(app):
-    """Initialize application middleware."""
-    # Security middleware
-    security = SecurityMiddleware(app)
-    
-    # Cache manager
+    # Initialize security middleware with custom CSP
+    SecurityMiddleware(app)
+
+    # Initialize cache manager
     cache_manager.init_app(app)
-    
-    # Set application start time for metrics
+
+    # Start cache cleaner
+    if not hasattr(app, 'cache_cleaner_running') and app.config.get('ENABLE_CACHE_CLEANER', True):
+        start_cache_cleaner(app)
+
+    return app
+
+
+def start_cache_cleaner(app):
+    """Start background thread for cache maintenance."""
+    from threading import Thread
     import time
-    app.start_time = time.time()
-    
-    logger.info("Middleware initialized successfully")
+
+    def cleaner():
+        while True:
+            time.sleep(60 * 5)  # Clean every 5 minutes
+            try:
+                with app.app_context():
+                    cache_manager.cleanup_expired()
+            except Exception as e:
+                logger.error(f"Cache cleaner error: {str(e)}")
+
+    thread = Thread(target=cleaner, daemon=True)
+    thread.start()
+    app.cache_cleaner_running = True
+    logger.info("Started cache cleanup thread")
+
+
+def add_security_headers(app):
+    """Add security headers to all responses."""
+
+    @app.after_request
+    def add_security_headers(response):
+        # Security headers configuration
+        headers = {
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'X-XSS-Protection': '1; mode=block',
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+        }
+
+        # Relax CSP for Swagger UI
+        if request.path == '/':  # Only for Swagger UI route
+            csp = "default-src 'self'; " \
+                  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " \
+                  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; " \
+                  "img-src 'self' data: https://*.jsdelivr.net; " \
+                  "font-src 'self' https://cdn.jsdelivr.net; " \
+                  "connect-src 'self'"
+            headers['Content-Security-Policy'] = csp
+        else:
+            # Stricter CSP for other routes
+            headers['Content-Security-Policy'] = "default-src 'self';"
+
+        # Add headers to response
+        for header, value in headers.items():
+            response.headers[header] = value
+
+        return response
+
+    return app
 
 def configure_app(app, config=None):
     """Centralized configuration management"""
@@ -107,13 +160,19 @@ def configure_app(app, config=None):
 
     # Optimized connection pooling settings for Supabase
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_size': 1,  # Max connections per worker
-        'max_overflow': 0,  # No additional connections beyond pool_size
-        'pool_timeout': 10,  # Wait time for connection (seconds)
-        'pool_recycle': 300,  # Recycle connections every 5 minutes (300s)
-        'pool_pre_ping': True,  # Check connection health before use
-        'pool_use_lifo': True  # Use Last-In-First-Out queue for better connection reuse
+        'pool_size': 1,
+        'max_overflow': 0,
+        'pool_timeout': 10,
+        'pool_recycle': 300,
+        'pool_pre_ping': True,
+        'pool_use_lifo': True
     }
+    # cache configuration
+    app.config.update({
+        'CACHE_DEFAULT_TIMEOUT': 300,
+        'CACHE_ENABLED': True,
+        'ENABLE_CACHE_CLEANER': True
+    })
 
     # JWT Configuration
     app.config.update({
@@ -207,24 +266,26 @@ def register_blueprints(app):
     """Register blueprints with conflict checking"""
     from .blueprints.auth.routes import auth_bp
     from .blueprints.items.routes import items_crud_bp
-    # from .blueprints.routes import items_bp
+    from .blueprints.routes import items_bp
     from .blueprints.item_images.images import images_crud_bp
     from .blueprints.admin.listing import admin_listings_bp
     from .blueprints.admin.view import report_bp
     from .blueprints.messages.routes import msg_bp
     from .blueprints.admin.users import admin_bp
     from .blueprints.admin.stats import admin_stat_bp
+    from .blueprints.views.health import health_bp
 
     blueprints = [
         (auth_bp, '/api/auth'),
-        # (items_bp, '/api/admin'),
+        (items_bp, '/api/admin'),
         (items_crud_bp, '/api/items'),
         (images_crud_bp, '/api/items'),
         (msg_bp, '/api/messages'),
         (admin_bp, '/api/admin'),
         (admin_listings_bp, '/api/admin'),
         (report_bp, '/api/admin'),
-        (admin_stat_bp, '/api/admin')
+        (admin_stat_bp, '/api/admin'),
+        (health_bp, '/api/health')
     ]
 
     for blueprint, url_prefix in blueprints:
