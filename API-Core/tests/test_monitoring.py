@@ -1,4 +1,4 @@
-"""Tests for monitoring and health check functionality."""
+"""Tests for views and health check functionality."""
 
 import pytest
 import json
@@ -89,7 +89,7 @@ class TestErrorHandling:
 
 
 class TestSecurityMonitoring:
-    """Test security monitoring features."""
+    """Test security views features."""
     
     def test_failed_auth_attempts_logged(self, client, caplog):
         """Test that failed authentication attempts are logged."""
