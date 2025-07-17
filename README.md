@@ -3,7 +3,7 @@
 
 The API is live and accessible here:
 
-👉 [`https://marketplace-api-bjdwhhdbgnauhgac.canadacentral-01.azurewebsites.net`](https://marketplace-api-bjdwhhdbgnauhgac.canadacentral-01.azurewebsites.net)
+👉 [`https://studentmarketplace-peog.onrender.com`](https://studentmarketplace-peog.onrender.com)
 
 PLEASE NOTE:
 > 
